@@ -1,0 +1,6 @@
+pandas
+numpy
+requests
+scikit-learn==1.6.1
+joblib==1.4.2
+python-dotenv

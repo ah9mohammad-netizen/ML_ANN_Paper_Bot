@@ -1,0 +1,29 @@
+{
+  "strategy_name": "MTF Local-Opt Pair-Direction Paper Strategy",
+  "timeframe": "4h entry, derived 1D regime",
+  "active_pairs_default": ["BTC", "ETH", "SOL", "AVAX"],
+  "paper_risk_defaults": {
+    "starting_balance": 100,
+    "risk_per_trade_pct": 1.0,
+    "leverage": 3,
+    "max_open_positions": 2,
+    "same_pair_lock": true,
+    "taker_fee_pct": 0.04,
+    "slippage_pct": 0.02
+  },
+  "pair_direction_status": {
+    "BTC_LONG": "active",
+    "BTC_SHORT": "active",
+    "ETH_LONG": "active",
+    "ETH_SHORT": "active_weak",
+    "SOL_LONG": "active",
+    "SOL_SHORT": "active",
+    "AVAX_LONG": "disabled_watch",
+    "AVAX_SHORT": "active",
+    "BNB_LONG": "disabled_watch",
+    "BNB_SHORT": "disabled_watch",
+    "HYPE_LONG": "omitted_insufficient_data",
+    "HYPE_SHORT": "omitted_insufficient_data"
+  },
+  "note": "Exact pair-direction effect weights are hardcoded in strategy.py as PAIR_DIRECTION_CONFIG. This JSON is a human-readable deployment summary."
+}

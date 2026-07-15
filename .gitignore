@@ -1,0 +1,12 @@
+# Ignore python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore environment variables and local databases
+.env
+*.db
+
+# DO NOT ignore the model artifacts
+!artifacts/ann_mtf_v3_model.joblib
+!artifacts/ann_mtf_v3_meta.json
