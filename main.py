@@ -18,7 +18,7 @@ def main():
         f"💰 Balance: {store.balance():.2f} USDT\n"
         f"📈 Pairs: {', '.join([p.strip().upper() for p in cfg.pairs if p.strip()])}\n"
         f"⚙️ Risk: {cfg.risk_per_trade_pct}% | Leverage: {cfg.leverage}x | MaxOpen: {cfg.max_open_positions}\n"
-        f"🧠 Strategy: pair-direction decision-maker weighted MTF config"
+        f"🧠 Strategy: {cfg.strategy_mode} ({cfg.timeframe or 'Auto'} Timeframe)"
     )
     tg.send(start_msg)
     print(start_msg)
