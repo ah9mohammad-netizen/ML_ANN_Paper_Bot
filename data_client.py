@@ -3,7 +3,17 @@ import requests
 import pandas as pd
 import numpy as np
 
-BAR_MAP={'15m':'15m','1h':'1H','4h':'4H'}
+BAR_MAP={
+    '1m': '1m',
+    '3m': '3m',
+    '5m': '5m',
+    '15m': '15m',
+    '30m': '30m',
+    '1h': '1H',
+    '2h': '2H',
+    '4h': '4H',
+    '1D': '1D'
+}
 
 def fetch_okx(sym, tf, limit=300):
     pair=f'{sym}-USDT'

@@ -8,6 +8,48 @@ import pandas as pd
 def ema(s, n):
     return s.ewm(span=n, adjust=False, min_periods=n).mean()
 
+def cci(df, n=14):
+    tp = (df.high + df.low + df.close) / 3
+    sma = tp.rolling(n).mean()
+    mad = tp.rolling(n).apply(lambda x: np.abs(x - x.mean()).mean(), raw=True)
+    return (tp - sma) / (0.015 * mad.replace(0, np.nan))
+
+def bollinger_bands(close, n=20, stds=2):
+    mid = close.rolling(n).mean()
+    std = close.rolling(n).std()
+    upper = mid + stds * std
+    lower = mid - stds * std
+    return upper, mid, lower
+
+def wma(s, n):
+    weights = np.arange(1, n + 1)
+    return s.rolling(n).apply(lambda x: np.dot(x, weights) / weights.sum(), raw=True)
+
+def hma(s, n):
+    half_len = int(n / 2)
+    sqrt_len = int(np.sqrt(n))
+    wma_half = wma(s, half_len)
+    wma_full = wma(s, n)
+    diff = 2 * wma_half - wma_full
+    return wma(diff, sqrt_len)
+
+def cmf(df, n=20):
+    cl_diff = (df.close - df.low) - (df.high - df.close)
+    hl_diff = (df.high - df.low).replace(0, np.nan)
+    mfv = (cl_diff / hl_diff) * df.volume
+    return mfv.rolling(n).sum() / df.volume.rolling(n).sum().replace(0, np.nan)
+
+def mfi(df, n=14):
+    tp = (df.high + df.low + df.close) / 3
+    tp_diff = tp.diff()
+    raw_money_flow = tp * df.volume
+    pos_flow = raw_money_flow.where(tp_diff > 0, 0.0)
+    neg_flow = raw_money_flow.where(tp_diff < 0, 0.0)
+    pos_mf = pos_flow.rolling(n).sum()
+    neg_mf = neg_flow.rolling(n).sum()
+    m_ratio = pos_mf / neg_mf.replace(0, np.nan)
+    return 100 - 100 / (1 + m_ratio)
+
 def rsi(close, n=14):
     d = close.diff()
     up = d.clip(lower=0)
@@ -260,7 +302,213 @@ class StrategyBrain:
         pred_r = (prob - 0.50) * (cfg['tp_atr'] / cfg['sl_atr']) * 2.0 - 0.03
         return prob, pred_r
 
+    def calculate_cci_bb_signal(self, pair, df):
+        if df is None or df.empty or len(df) < 50:
+            return None
+        d = df.copy().sort_index()
+        d['cci_val'] = cci(d, 14)
+        upper, mid, lower = bollinger_bands(d.close, 20, 2)
+        d['bb_lower'] = lower
+        d['bb_upper'] = upper
+        
+        row = d.iloc[-1]
+        entry = float(row.close)
+        
+        d['atr_val'] = atr(d, 14)
+        atr_now = float(d['atr_val'].iloc[-1])
+        if not np.isfinite(atr_now) or atr_now <= 0:
+            atr_now = entry * 0.01
+            
+        side = None
+        if row.cci_val <= -134 and entry < row.bb_lower:
+            side = 'LONG'
+        elif row.cci_val >= 134 and entry > row.bb_upper:
+            side = 'SHORT'
+            
+        if side is None:
+            return None
+            
+        tp_atr = 1.5
+        sl_atr = 3.0
+        
+        target_abs = tp_atr * atr_now
+        risk_abs = sl_atr * atr_now
+        
+        if side == 'LONG':
+            sl = entry - risk_abs
+            tp = entry + target_abs
+        else:
+            sl = entry + risk_abs
+            tp = entry - target_abs
+            
+        return {
+            'pair': pair,
+            'side': side,
+            'setup': 'CCI_BB_SCALPER',
+            'probability': 0.85,
+            'predicted_R': 0.5,
+            'entry': entry,
+            'sl': float(sl),
+            'tp': float(tp),
+            'risk_pct': float(risk_abs / entry),
+            'trigger_time': str(d.index[-1]),
+            'signal_time': str(d.index[-1]),
+            'risk_mult': 1.0,
+            'max_hold_hours': 12,
+            'meta': {
+                'family': 'CCI_BB_SCALPER',
+                'prob_th': 0.70,
+                'er_th': 0.0,
+                'decision_makers': {'cci': float(row.cci_val), 'close': entry, 'bb_lower': float(row.bb_lower), 'bb_upper': float(row.bb_upper)},
+                'predicted_R': 0.5,
+                'max_hold_hours': 12,
+                'risk_mult': 1.0,
+            }
+        }
+
+    def calculate_hma_crossover_signal(self, pair, df):
+        if df is None or df.empty or len(df) < 50:
+            return None
+        d = df.copy().sort_index()
+        d['hma20'] = hma(d.close, 20)
+        
+        if len(d) < 5:
+            return None
+            
+        close_curr = d.close.iloc[-2]
+        close_prev = d.close.iloc[-3]
+        hma_curr = d.hma20.iloc[-2]
+        hma_prev = d.hma20.iloc[-3]
+        
+        entry = float(d.close.iloc[-1])
+        
+        side = None
+        if close_curr > hma_curr and close_prev < hma_prev:
+            side = 'LONG'
+        elif close_curr < hma_curr and close_prev > hma_prev:
+            side = 'SHORT'
+            
+        if side is None:
+            return None
+            
+        d['atr_val'] = atr(d, 14)
+        atr_now = float(d['atr_val'].iloc[-1])
+        if not np.isfinite(atr_now) or atr_now <= 0:
+            atr_now = entry * 0.01
+            
+        tp_atr = 2.0
+        sl_atr = 2.0
+        
+        target_abs = tp_atr * atr_now
+        risk_abs = sl_atr * atr_now
+        
+        if side == 'LONG':
+            sl = entry - risk_abs
+            tp = entry + target_abs
+        else:
+            sl = entry + risk_abs
+            tp = entry - target_abs
+            
+        return {
+            'pair': pair,
+            'side': side,
+            'setup': 'HMA_TREND_CROSSOVER',
+            'probability': 0.80,
+            'predicted_R': 0.6,
+            'entry': entry,
+            'sl': float(sl),
+            'tp': float(tp),
+            'risk_pct': float(risk_abs / entry),
+            'trigger_time': str(d.index[-1]),
+            'signal_time': str(d.index[-1]),
+            'risk_mult': 1.0,
+            'max_hold_hours': 24,
+            'meta': {
+                'family': 'HMA_TREND_CROSSOVER',
+                'prob_th': 0.70,
+                'er_th': 0.0,
+                'decision_makers': {'close_curr': float(close_curr), 'hma_curr': float(hma_curr)},
+                'predicted_R': 0.6,
+                'max_hold_hours': 24,
+                'risk_mult': 1.0,
+            }
+        }
+
+    def calculate_smart_money_signal(self, pair, df):
+        if df is None or df.empty or len(df) < 210:
+            return None
+        d = df.copy().sort_index()
+        d['cmf_val'] = cmf(d, 20)
+        d['mfi_val'] = mfi(d, 14)
+        d['ema200'] = ema(d.close, 200)
+        
+        row = d.iloc[-1]
+        entry = float(row.close)
+        ema_val = float(row.ema200)
+        mfi_val = float(row.mfi_val)
+        cmf_val = float(row.cmf_val)
+        
+        side = None
+        if entry < ema_val and mfi_val < 35 and cmf_val < -0.07:
+            side = 'LONG'
+        elif entry > ema_val and mfi_val > 70 and cmf_val > 0.20:
+            side = 'SHORT'
+            
+        if side is None:
+            return None
+            
+        d['atr_val'] = atr(d, 14)
+        atr_now = float(d['atr_val'].iloc[-1])
+        if not np.isfinite(atr_now) or atr_now <= 0:
+            atr_now = entry * 0.01
+            
+        tp_atr = 2.5
+        sl_atr = 2.0
+        
+        target_abs = tp_atr * atr_now
+        risk_abs = sl_atr * atr_now
+        
+        if side == 'LONG':
+            sl = entry - risk_abs
+            tp = entry + target_abs
+        else:
+            sl = entry + risk_abs
+            tp = entry - target_abs
+            
+        return {
+            'pair': pair,
+            'side': side,
+            'setup': 'SMART_MONEY_PULLBACK',
+            'probability': 0.78,
+            'predicted_R': 0.7,
+            'entry': entry,
+            'sl': float(sl),
+            'tp': float(tp),
+            'risk_pct': float(risk_abs / entry),
+            'trigger_time': str(d.index[-1]),
+            'signal_time': str(d.index[-1]),
+            'risk_mult': 1.0,
+            'max_hold_hours': 48,
+            'meta': {
+                'family': 'SMART_MONEY_PULLBACK',
+                'prob_th': 0.70,
+                'er_th': 0.0,
+                'decision_makers': {'cmf': cmf_val, 'mfi': mfi_val, 'ema200': ema_val},
+                'predicted_R': 0.7,
+                'max_hold_hours': 48,
+                'risk_mult': 1.0,
+            }
+        }
+
     def latest_signal(self, pair, df15=None, df1h=None, df4h=None, rr=None):
+        mode = getattr(self.cfg, 'strategy_mode', 'MTF_LOCAL_OPT') if self.cfg else 'MTF_LOCAL_OPT'
+        if mode == 'CCI_BB_SCALPER':
+            return self.calculate_cci_bb_signal(pair, df4h)
+        elif mode == 'HMA_TREND_CROSSOVER':
+            return self.calculate_hma_crossover_signal(pair, df4h)
+        elif mode == 'SMART_MONEY_PULLBACK':
+            return self.calculate_smart_money_signal(pair, df4h)
+
         if df4h is None or df4h.empty:
             return None
         d = self.add_4h_features(df4h)

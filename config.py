@@ -41,4 +41,7 @@ class BotConfig:
     model_path: str = os.getenv('MODEL_PATH', '')
     meta_path: str = os.getenv('META_PATH', '')
 
+    strategy_mode: str = os.getenv('STRATEGY_MODE', 'MTF_LOCAL_OPT')
+    timeframe: str = os.getenv('TIMEFRAME', '')
+
     paused: bool = os.getenv('PAUSED', 'false').lower() == 'true'

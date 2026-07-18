@@ -48,11 +48,22 @@ class PaperEngine:
         return True, ''
 
     def process_pair(self, pair):
-        # Strategy is 4h/1D; fetch enough 4h candles for EMA/rank/efficiency features.
-        df4h = fetch_okx(pair, '4h', 1000)
-        if df4h.empty:
+        mode = getattr(self.cfg, 'strategy_mode', 'MTF_LOCAL_OPT')
+        tf = getattr(self.cfg, 'timeframe', '')
+        if not tf:
+            if mode == 'CCI_BB_SCALPER':
+                tf = '5m'
+            elif mode == 'HMA_TREND_CROSSOVER':
+                tf = '5m'
+            elif mode == 'SMART_MONEY_PULLBACK':
+                tf = '30m'
+            else:
+                tf = '4h'
+
+        df_candles = fetch_okx(pair, tf, 1000)
+        if df_candles.empty:
             return None
-        sig = self.brain.latest_signal(pair, None, None, df4h)
+        sig = self.brain.latest_signal(pair, None, None, df_candles)
         if not sig:
             return None
 
