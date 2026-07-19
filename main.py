@@ -14,11 +14,11 @@ def main():
     tg = TelegramUI(cfg.telegram_token, cfg.telegram_chat_id, store)
 
     start_msg = (
-        f"🤖 MTF Local-Opt Paper Bot Started\n"
+        f"🤖 Unified Self-Aware Trading Bot Started\n"
         f"💰 Balance: {store.balance():.2f} USDT\n"
         f"📈 Pairs: {', '.join([p.strip().upper() for p in cfg.pairs if p.strip()])}\n"
         f"⚙️ Risk: {cfg.risk_per_trade_pct}% | Leverage: {cfg.leverage}x | MaxOpen: {cfg.max_open_positions}\n"
-        f"🧠 Strategy: {cfg.strategy_mode} ({cfg.timeframe or 'Auto'} Timeframe)"
+        f"🧠 Strategy: Dynamic Portfolio (Category 1: SMC 15m | Category 2: SMC 15m | Category 3: CCI 5m)"
     )
     tg.send(start_msg)
     print(start_msg)
