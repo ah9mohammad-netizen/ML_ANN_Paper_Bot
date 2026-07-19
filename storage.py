@@ -50,13 +50,15 @@ CREATE TABLE IF NOT EXISTS positions (
   meta TEXT
 );
 """
+
 def dict_factory(cursor, row):
     return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
+
 class Store:
     def __init__(self, path):
-        self.path = Path(path)
-        self.db_path = str(self.path)  # Now properly mapped for TelegramUI!
-        self.conn = sqlite3.connect(self.path, check_same_thread=False)
+        self.path=Path(path)
+        self.db_path=str(self.path)
+        self.conn=sqlite3.connect(self.path, check_same_thread=False)
         self.conn.row_factory=dict_factory
         self.conn.executescript(SCHEMA)
         self.conn.commit()
@@ -124,7 +126,7 @@ class Store:
             'open_positions': len(self.open_positions()),
             'closed_positions': len(rows),
             'win_rate': 100*len(wins)/len(rows) if rows else 0,
-            'profit_factor': gross_win/gross_loss if gross_loss else None,
+            'profit_factor': gross_win/gross_loss if gross_loss > 0 else None,
             'signals': sig,
         }
 
