@@ -50,12 +50,16 @@ CREATE TABLE IF NOT EXISTS positions (
   meta TEXT
 );
 """
-
+def dict_factory(cursor, row):
+    return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
 class Store:
     def __init__(self, path):
         self.path = Path(path)
         self.db_path = str(self.path)  # Now properly mapped for TelegramUI!
         self.conn = sqlite3.connect(self.path, check_same_thread=False)
+        self.conn.row_factory=dict_factory
+        self.conn.executescript(SCHEMA)
+        self.conn.commit()
 
     def now(self):
         return datetime.now(timezone.utc).isoformat()
