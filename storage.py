@@ -53,11 +53,9 @@ CREATE TABLE IF NOT EXISTS positions (
 
 class Store:
     def __init__(self, path):
-        self.path=Path(path)
-        self.conn=sqlite3.connect(self.path, check_same_thread=False)
-        self.conn.row_factory=sqlite3.Row
-        self.conn.executescript(SCHEMA)
-        self.conn.commit()
+        self.path = Path(path)
+        self.db_path = str(self.path)  # Now properly mapped for TelegramUI!
+        self.conn = sqlite3.connect(self.path, check_same_thread=False)
 
     def now(self):
         return datetime.now(timezone.utc).isoformat()
