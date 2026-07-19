@@ -48,29 +48,26 @@ class PaperEngine:
         return True, ''
 
     def process_pair(self, pair):
-        mode = getattr(self.cfg, 'strategy_mode', 'MTF_LOCAL_OPT')
-        tf = getattr(self.cfg, 'timeframe', '')
-        if not tf:
-            if mode == 'CCI_BB_SCALPER':
-                tf = '5m'
-            elif mode == 'HMA_TREND_CROSSOVER':
-                tf = '5m'
-            elif mode == 'SMART_MONEY_PULLBACK':
-                tf = '30m'
-            else:
-                tf = '4h'
+        p_upper = pair.upper().strip()
+        # Automatically assign timeframe based on category
+        if p_upper in ['BTC', 'ETH', 'SOL', 'AVAX', 'BNB', 'LINK', 'NEAR']:
+            tf = '15m'
+        elif p_upper in ['HYPE', 'PEPE', 'WIF', 'FET']:
+            tf = '5m'
+        else:
+            tf = '15m'
 
-        df_candles = fetch_okx(pair, tf, 1000)
+        df_candles = fetch_okx(p_upper, tf, 1000)
         if df_candles.empty:
             return None
-        sig = self.brain.latest_signal(pair, None, None, df_candles)
+        sig = self.brain.latest_signal(p_upper, None, None, df_candles)
         if not sig:
             return None
 
         # Deduplicate same pair/side/setup/signal time.
         last_key = self.store.get_state('last_signal_key', {})
-        key = f"{pair}|{sig['side']}|{sig['setup']}|{sig['signal_time']}"
-        if last_key.get(pair) == key:
+        key = f"{p_upper}|{sig['side']}|{sig['setup']}|{sig['signal_time']}"
+        if last_key.get(p_upper) == key:
             return None
 
         notional, margin, qty = self.calc_size(sig)
@@ -88,7 +85,7 @@ class PaperEngine:
         sig.update({'status': 'OPENED', 'reason': ''})
         signal_id = self.store.add_signal(sig)
         self.store.add_position({**sig, 'signal_id': signal_id, 'qty': qty, 'leverage': self.cfg.leverage})
-        last_key[pair] = key
+        last_key[p_upper] = key
         self.store.set_state('last_signal_key', last_key)
         return sig
 
@@ -118,8 +115,8 @@ class PaperEngine:
             # Time barrier check using max_hold_hours stored in meta if enabled.
             if reason is None and self.cfg.close_on_time_exit:
                 try:
-                    meta = p['meta']
                     import json
+                    meta = p['meta']
                     m = json.loads(meta) if isinstance(meta, str) else {}
                     max_hold = int(m.get('max_hold_hours', m.get('max_hold_hours'.lower(), 0)) or 0)
                     opened = pd.Timestamp(p['opened_at'])
