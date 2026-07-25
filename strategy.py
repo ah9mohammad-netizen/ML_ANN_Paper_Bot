@@ -104,7 +104,7 @@ def clamp(x, lo, hi):
     return max(lo, min(hi, float(x)))
 
 # -----------------------------
-# Asset specific backtest configurations
+# Asset specific configurations
 # -----------------------------
 SCALPER_ASSET_CONFIG = {
     ('BTC', 'LONG'):  {'stdev': 2.0, 'cci_th': -135, 'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
@@ -236,9 +236,11 @@ class StrategyBrain:
         if not long_sweep and not short_sweep:
             return None
             
+        # Layer 3: Volume Capitulation Footprint
         if row.volume < 1.25 * row.vol_sma20:
             return None
             
+        # Layer 4: Fair Value Gap (FVG) Check
         if fvg_required:
             fvg_long = row.low > prev2_row.high
             fvg_short = row.high < prev2_row.low
@@ -247,6 +249,7 @@ class StrategyBrain:
             if short_sweep and not fvg_short:
                 short_sweep = False
                 
+        # Layer 3 (Alternative): EMA-200 Trend Alignment
         if trend_filter:
             if long_sweep and row.close < row.ema200:
                 long_sweep = False
@@ -258,23 +261,37 @@ class StrategyBrain:
             
         side = 'LONG' if long_sweep else 'SHORT'
         
+        d['atr_val'] = atr(d, 14)
+        atr_now = float(d['atr_val'].iloc[-1])
+        if not np.isfinite(atr_now) or atr_now <= 0:
+            atr_now = row.close * 0.01
+            
+        # Layer 5: Order Block Pullback Entry Optimizer & Stop Loss Buffer
         if side == 'LONG':
             wick_size = row.close - row.low
             entry_price = row.close - (pullback_pct / 100) * wick_size
-            sl = row.low - (entry_price * 0.001)
+            # Add a 0.35x ATR buffer below the sweep low to survive double bottoms
+            sl = row.low - (0.35 * atr_now)
             tp = row.swing_high
         else:
             wick_size = row.high - row.close
             entry_price = row.close + (pullback_pct / 100) * wick_size
-            sl = row.high + (entry_price * 0.001)
+            # Add a 0.35x ATR buffer above the sweep high to survive double tops
+            sl = row.high + (0.35 * atr_now)
             tp = row.swing_low
             
-        d['atr_val'] = atr(d, 14)
-        atr_now = float(d['atr_val'].iloc[-1])
-        if not np.isfinite(atr_now) or atr_now <= 0:
-            atr_now = entry_price * 0.01
+        # Layer 6: Strict Risk-to-Reward Ratio Filter (Inverted R:R Protection)
+        risk = abs(entry_price - sl)
+        reward = abs(tp - entry_price)
+        if risk <= 0 or reward <= 0:
+            return None
             
-        risk_pct = float(abs(entry_price - sl) / entry_price)
+        rr_ratio = reward / risk
+        if rr_ratio < 1.50:
+            # Reject trade if potential reward is less than 1.5x potential risk (stops inverted setups)
+            return None
+            
+        risk_pct = float(risk / entry_price)
         
         return {
             'pair': pair,
@@ -294,7 +311,7 @@ class StrategyBrain:
                 'family': 'SMC_SWEEP_RECLAIM',
                 'prob_th': 0.70,
                 'er_th': 0.0,
-                'decision_makers': {'lookback': lookback, 'pullback_pct': pullback_pct, 'fvg_required': fvg_required, 'trend_filter': trend_filter},
+                'decision_makers': {'lookback': lookback, 'pullback_pct': pullback_pct, 'fvg_required': fvg_required, 'trend_filter': trend_filter, 'rr_ratio': round(rr_ratio, 2)},
                 'predicted_R': 0.8,
                 'max_hold_hours': 24,
                 'risk_mult': 1.0,
@@ -304,15 +321,15 @@ class StrategyBrain:
     def latest_signal(self, pair, df15=None, df1h=None, df4h=None, rr=None):
         p_upper = pair.upper().strip()
         
-        # Category 1: Majors -> SMC Retracement (60%) on 15m
+        # 1. Category 1: Majors -> SMC Retracement (60%) on 15m (Wider 36-bar lookback window)
         if p_upper in ['BTC', 'ETH']:
-            return self.calculate_smc_signal(p_upper, df4h, lookback=12, pullback_pct=60, fvg_required=False, trend_filter=True)
+            return self.calculate_smc_signal(p_upper, df4h, lookback=36, pullback_pct=60, fvg_required=False, trend_filter=True)
             
-        # Category 2: Mid-Vol -> SMC Pullback (30%) on 15m
+        # 2. Category 2: Mid-Vol -> SMC Pullback (30%) on 15m (Wider 36-bar lookback window)
         elif p_upper in ['SOL', 'AVAX', 'BNB', 'LINK', 'NEAR']:
-            return self.calculate_smc_signal(p_upper, df4h, lookback=12, pullback_pct=30, fvg_required=False, trend_filter=True)
+            return self.calculate_smc_signal(p_upper, df4h, lookback=36, pullback_pct=30, fvg_required=False, trend_filter=True)
             
-        # Category 3: High-Vol -> CCI_BB_SCALPER on 5m
+        # 3. Category 3: High-Vol -> CCI_BB_SCALPER on 5m
         elif p_upper in ['HYPE', 'PEPE', 'WIF', 'FET']:
             return self.calculate_cci_bb_signal(p_upper, df4h)
             
