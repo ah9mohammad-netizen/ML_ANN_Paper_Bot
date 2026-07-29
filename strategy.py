@@ -267,29 +267,24 @@ class StrategyBrain:
         if not np.isfinite(atr_now) or atr_now <= 0:
             atr_now = row.close * 0.01
             
-        # Layer 5: Order Block Pullback Entry Optimizer & Stop Loss Buffer
+        # Volatility-Adjusted Breathing Stops from the actual close entry price
+        # This aligns the entry price with the paper engine execution and prevents premature stop-outs
+        entry_price = float(row.close)
+        
         if side == 'LONG':
-            wick_size = row.close - row.low
-            entry_price = row.close - (pullback_pct / 100) * wick_size
-            # Add a 0.35x ATR buffer below the sweep low to survive double bottoms
-            sl = row.low - (0.35 * atr_now)
-            tp = row.swing_high
+            # Use 3.0x ATR for majors, 3.5x ATR for mid-vol to survive double sweeps
+            sl_atr_mult = 3.0 if pair in ['BTC', 'ETH'] else 3.5
+            sl = entry_price - (sl_atr_mult * atr_now)
+            tp = entry_price + (1.5 * atr_now)
         else:
-            wick_size = row.high - row.close
-            entry_price = row.close + (pullback_pct / 100) * wick_size
-            # Add a 0.35x ATR buffer above the sweep high to survive double tops
-            sl = row.high + (0.35 * atr_now)
-            tp = row.swing_low
+            sl_atr_mult = 3.0 if pair in ['BTC', 'ETH'] else 3.5
+            sl = entry_price + (sl_atr_mult * atr_now)
+            tp = entry_price - (1.5 * atr_now)
             
-        # Layer 6: Strict Risk-to-Reward Ratio Filter (Inverted R:R Protection)
+        # Layer 6: Risk-to-Reward Safety Checks
         risk = abs(entry_price - sl)
         reward = abs(tp - entry_price)
         if risk <= 0 or reward <= 0:
-            return None
-            
-        rr_ratio = reward / risk
-        if rr_ratio < 1.50:
-            # Reject trade if potential reward is less than 1.5x potential risk (stops inverted setups)
             return None
             
         risk_pct = float(risk / entry_price)
@@ -297,10 +292,10 @@ class StrategyBrain:
         return {
             'pair': pair,
             'side': side,
-            'setup': f"SMC_PULLBACK_{pullback_pct}" if pullback_pct > 0 else "SMC_DIRECT",
+            'setup': 'SMC_SWEEP_RECLAIM',
             'probability': 0.82,
             'predicted_R': 0.8,
-            'entry': float(entry_price),
+            'entry': entry_price,
             'sl': float(sl),
             'tp': float(tp),
             'risk_pct': risk_pct,
@@ -312,7 +307,7 @@ class StrategyBrain:
                 'family': 'SMC_SWEEP_RECLAIM',
                 'prob_th': 0.70,
                 'er_th': 0.0,
-                'decision_makers': {'lookback': lookback, 'pullback_pct': pullback_pct, 'fvg_required': fvg_required, 'trend_filter': trend_filter, 'rr_ratio': round(rr_ratio, 2)},
+                'decision_makers': {'lookback': lookback, 'trend_filter': trend_filter},
                 'predicted_R': 0.8,
                 'max_hold_hours': 24,
                 'risk_mult': 1.0,
