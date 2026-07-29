@@ -13,13 +13,13 @@ class BotConfig:
 
     starting_balance: float = float(os.getenv('STARTING_BALANCE', '100'))
 
-    # Risk parameters
+    # Risk parameters (Optimized for balance management)
     risk_per_trade_pct: float = float(os.getenv('RISK_PER_TRADE_PCT', '1.0'))
-    leverage: float = float(os.getenv('LEVERAGE', '3'))
-    max_open_positions: int = int(os.getenv('MAX_OPEN_POSITIONS', '4'))
-    max_total_margin_pct: float = float(os.getenv('MAX_TOTAL_MARGIN_PCT', '70'))
-    max_margin_per_position_pct: float = float(os.getenv('MAX_MARGIN_PER_POSITION_PCT', '35'))
-    max_notional_pct: float = float(os.getenv('MAX_NOTIONAL_PCT', '150'))
+    leverage: float = float(os.getenv('LEVERAGE', '10'))
+    max_open_positions: int = int(os.getenv('MAX_OPEN_POSITIONS', '6'))
+    max_total_margin_pct: float = float(os.getenv('MAX_TOTAL_MARGIN_PCT', '90'))
+    max_margin_per_position_pct: float = float(os.getenv('MAX_MARGIN_PER_POSITION_PCT', '15'))
+    max_notional_pct: float = float(os.getenv('MAX_NOTIONAL_PCT', '250'))
 
     # Paper trading fees & slippage buffers
     taker_fee_pct: float = float(os.getenv('TAKER_FEE_PCT', '0.04'))
