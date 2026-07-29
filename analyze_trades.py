@@ -65,7 +65,6 @@ def analyze_dataframe(df):
         pass
 
     # 4. Drawdown Calculation
-    # Assume a starting balance of 100 if not easily retrievable
     starting_balance = 100.0
     closed_df = closed_df.sort_values('closed_at')
     balance_curve = starting_balance + closed_df['pnl'].cumsum()
@@ -151,7 +150,6 @@ def analyze_dataframe(df):
     print("==================================================")
 
 def main():
-    # Search for files dynamically
     csv_path = Path('/home/user/uploads/positions.csv')
     local_csv_path = Path('positions.csv')
     db_path = Path('paper_bot.db')
@@ -174,7 +172,6 @@ def main():
         except Exception as e:
             print(f"❌ Failed to read database: {e}")
     else:
-        # Check parent folder or any uploaded positions.csv
         found = False
         for root, dirs, files in os.walk('/home/user'):
             if 'positions.csv' in files:
@@ -186,8 +183,6 @@ def main():
                 break
         if not found:
             print("❌ No database file (paper_bot.db) or positions.csv found in workspace.")
-            print("💡 Please download your .db file using Telegram /backup, extract positions to positions.csv,")
-            print("   and place it in this workspace to trigger the analysis.")
 
 if __name__ == '__main__':
     main()
