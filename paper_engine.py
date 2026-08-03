@@ -97,8 +97,38 @@ class PaperEngine:
             if px is None:
                 continue
             side = p['side']
+            entry = float(p['entry'])
             reason = None
             exit_price = None
+
+            # --- LIVE ADAPTIVE TRAILING STOP-LOSS (TSL) ENGINE ---
+            # Activation at +1.5% profit, locks in Break-even + 0.2%, and trails by 0.8% offset
+            current_sl = float(p['sl'])
+            updated_sl = current_sl
+            
+            if side == 'LONG':
+                profit_pct = (px / entry) - 1.0
+                if profit_pct >= 0.015:
+                    be_lock = entry * (1.0 + 0.002)
+                    trail_level = px * 0.992
+                    target_sl = max(be_lock, trail_level)
+                    if target_sl > current_sl:
+                        updated_sl = target_sl
+            else: # SHORT
+                profit_pct = 1.0 - (px / entry)
+                if profit_pct >= 0.015:
+                    be_lock = entry * (1.0 - 0.002)
+                    trail_level = px * 1.008
+                    target_sl = min(be_lock, trail_level)
+                    if target_sl < current_sl or current_sl == 0:
+                        updated_sl = target_sl
+                        
+            if updated_sl != current_sl:
+                self.store.conn.execute("UPDATE positions SET sl=? WHERE id=?", (updated_sl, p['id']))
+                self.store.conn.commit()
+                # Update variable for immediate exit checks in this cycle
+                p = dict(p)
+                p['sl'] = updated_sl
 
             # TP/SL checks.
             if side == 'LONG':
