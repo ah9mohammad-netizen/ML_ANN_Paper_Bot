@@ -8,7 +8,7 @@ class BotConfig:
 
     # Dynamic fixed asset universe. Handled automatically by category.
     pairs: List[str] = field(default_factory=lambda: os.getenv(
-        'PAIRS', 'BTC,ETH,SOL,AVAX,BNB,LINK,NEAR,HYPE,PEPE,WIF,FET'
+        'PAIRS', 'BTC,ETH,SOL,LINK,NEAR,SUI,APT,HYPE,PEPE,WIF,FET,DOGE'
     ).split(','))
 
     starting_balance: float = float(os.getenv('STARTING_BALANCE', '100'))
