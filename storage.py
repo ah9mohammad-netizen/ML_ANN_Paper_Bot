@@ -117,9 +117,47 @@ class Store:
     def stats(self):
         sig=dict(self.conn.execute("SELECT status, COUNT(*) c FROM signals GROUP BY status").fetchall())
         rows=self.conn.execute("SELECT * FROM positions WHERE status='CLOSED'").fetchall()
-        wins=[r for r in rows if (r['pnl'] or 0)>0]; losses=[r for r in rows if (r['pnl'] or 0)<=0]
+        
+        wins=[r for r in rows if (r['pnl'] or 0)>0]
+        losses=[r for r in rows if (r['pnl'] or 0)<=0]
+        
         gross_win=sum(r['pnl'] for r in wins) if wins else 0
         gross_loss=abs(sum(r['pnl'] for r in losses)) if losses else 0
+        
+        # Sizing / R:R stats
+        avg_win = sum(r['pnl'] for r in wins) / len(wins) if wins else 0.0
+        avg_loss = abs(sum(r['pnl'] for r in losses)) / len(losses) if losses else 0.0
+        wl_ratio = avg_win / avg_loss if avg_loss > 0 else 0.0
+        
+        # Advanced Category and Regime Counters
+        regime_stats = {'Ranging': {'wins': 0, 'losses': 0}, 'Trending': {'wins': 0, 'losses': 0}}
+        category_stats = {
+            'Category 1 (Majors)': {'wins': 0, 'losses': 0},
+            'Category 2 (Mid-Vol)': {'wins': 0, 'losses': 0},
+            'Category 3 (High-Vol)': {'wins': 0, 'losses': 0}
+        }
+        
+        for r in rows:
+            try:
+                # Load meta JSON
+                meta_str = r['meta']
+                m = json.loads(meta_str) if isinstance(meta_str, str) else (meta_str or {})
+                regime = m.get('regime', 'Trending')
+                cat = m.get('category', 'Category 3 (High-Vol)')
+                is_win = (r['pnl'] or 0) > 0
+                
+                # Update regime counters
+                if regime in regime_stats:
+                    if is_win: regime_stats[regime]['wins'] += 1
+                    else: regime_stats[regime]['losses'] += 1
+                    
+                # Update category counters
+                if cat in category_stats:
+                    if is_win: category_stats[cat]['wins'] += 1
+                    else: category_stats[cat]['losses'] += 1
+            except Exception:
+                pass
+                
         return {
             'balance': self.balance(),
             'realized_pnl': self.get_state('realized_pnl',0.0),
@@ -127,6 +165,11 @@ class Store:
             'closed_positions': len(rows),
             'win_rate': 100*len(wins)/len(rows) if rows else 0,
             'profit_factor': gross_win/gross_loss if gross_loss > 0 else None,
+            'avg_win': avg_win,
+            'avg_loss': avg_loss,
+            'wl_ratio': wl_ratio,
+            'regime_stats': regime_stats,
+            'category_stats': category_stats,
             'signals': sig,
         }
 
