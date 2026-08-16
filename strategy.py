@@ -107,29 +107,29 @@ def clamp(x, lo, hi):
 # Asset specific configurations
 # -----------------------------
 SCALPER_ASSET_CONFIG = {
-    # High-probability wide-stop scalping configurations with expanded Take Profits
-    ('BTC', 'LONG'):  {'stdev': 2.0, 'cci_th': -135, 'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 3.0, 'max_hold': 12},
-    ('BTC', 'SHORT'): {'stdev': 2.2, 'cci_th': 140,  'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 3.0, 'max_hold': 12},
-    ('ETH', 'LONG'):  {'stdev': 2.0, 'cci_th': -130, 'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 3.0, 'max_hold': 12},
-    ('ETH', 'SHORT'): {'stdev': 2.3, 'cci_th': 135,  'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 3.0, 'max_hold': 12},
-    ('SOL', 'LONG'):  {'stdev': 2.2, 'cci_th': -140, 'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 3.5, 'max_hold': 12},
-    ('SOL', 'SHORT'): {'stdev': 2.4, 'cci_th': 145,  'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 3.5, 'max_hold': 12},
-    ('AVAX', 'LONG'): {'stdev': 2.2, 'cci_th': -135, 'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 3.5, 'max_hold': 12},
-    ('AVAX', 'SHORT'):{'stdev': 2.3, 'cci_th': 135,  'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 3.5, 'max_hold': 12},
-    ('BNB', 'LONG'):  {'stdev': 2.1, 'cci_th': -135, 'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 3.5, 'max_hold': 12},
-    ('BNB', 'SHORT'): {'stdev': 2.2, 'cci_th': 135,  'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 3.5, 'max_hold': 12},
-    ('HYPE', 'LONG'): {'stdev': 2.5, 'cci_th': -150, 'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 4.0, 'max_hold': 12},
-    ('HYPE', 'SHORT'):{'stdev': 2.5, 'cci_th': 150,  'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 4.0, 'max_hold': 12},
-    ('LINK', 'LONG'): {'stdev': 2.0, 'cci_th': -130, 'trend_filter': False, 'tp_atr': 2.5, 'sl_atr': 3.5, 'max_hold': 12},
-    ('LINK', 'SHORT'):{'stdev': 2.2, 'cci_th': 130,  'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 3.5, 'max_hold': 12},
-    ('NEAR', 'LONG'): {'stdev': 2.2, 'cci_th': -140, 'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 3.5, 'max_hold': 12},
-    ('NEAR', 'SHORT'):{'stdev': 2.3, 'cci_th': 140,  'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 3.5, 'max_hold': 12},
-    ('PEPE', 'LONG'): {'stdev': 2.5, 'cci_th': -150, 'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 4.0, 'max_hold': 12},
-    ('PEPE', 'SHORT'):{'stdev': 2.5, 'cci_th': 150,  'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 4.0, 'max_hold': 12},
-    ('WIF', 'LONG'):  {'stdev': 2.5, 'cci_th': -150, 'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 4.0, 'max_hold': 12},
-    ('WIF', 'SHORT'): {'stdev': 2.5, 'cci_th': 150,  'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 4.0, 'max_hold': 12},
-    ('FET', 'LONG'):  {'stdev': 2.3, 'cci_th': -140, 'trend_filter': True, 'tp_atr': 2.5, 'sl_atr': 3.5, 'max_hold': 12},
-    ('FET', 'SHORT'): {'stdev': 2.3, 'cci_th': 140,  'trend_filter': True, 'tp_atr': 1.5, 'sl_atr': 3.5, 'max_hold': 12},
+    # Symmetrical 1.33:1 Reward-to-Risk Configurations
+    ('BTC', 'LONG'):  {'stdev': 2.0, 'cci_th': -135, 'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('BTC', 'SHORT'): {'stdev': 2.2, 'cci_th': 140,  'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('ETH', 'LONG'):  {'stdev': 2.0, 'cci_th': -130, 'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('ETH', 'SHORT'): {'stdev': 2.3, 'cci_th': 135,  'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('SOL', 'LONG'):  {'stdev': 2.2, 'cci_th': -140, 'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('SOL', 'SHORT'): {'stdev': 2.4, 'cci_th': 145,  'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('AVAX', 'LONG'): {'stdev': 2.2, 'cci_th': -135, 'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('AVAX', 'SHORT'):{'stdev': 2.3, 'cci_th': 135,  'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('BNB', 'LONG'):  {'stdev': 2.1, 'cci_th': -135, 'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('BNB', 'SHORT'): {'stdev': 2.2, 'cci_th': 135,  'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('HYPE', 'LONG'): {'stdev': 2.5, 'cci_th': -150, 'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('HYPE', 'SHORT'):{'stdev': 2.5, 'cci_th': 150,  'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('LINK', 'LONG'): {'stdev': 2.0, 'cci_th': -130, 'trend_filter': False, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('LINK', 'SHORT'):{'stdev': 2.2, 'cci_th': 130,  'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('NEAR', 'LONG'): {'stdev': 2.2, 'cci_th': -140, 'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('NEAR', 'SHORT'):{'stdev': 2.3, 'cci_th': 140,  'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('PEPE', 'LONG'): {'stdev': 2.5, 'cci_th': -150, 'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('PEPE', 'SHORT'):{'stdev': 2.5, 'cci_th': 150,  'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('WIF', 'LONG'):  {'stdev': 2.5, 'cci_th': -150, 'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('WIF', 'SHORT'): {'stdev': 2.5, 'cci_th': 150,  'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('FET', 'LONG'):  {'stdev': 2.3, 'cci_th': -140, 'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
+    ('FET', 'SHORT'): {'stdev': 2.3, 'cci_th': 140,  'trend_filter': True, 'tp_atr': 2.0, 'sl_atr': 1.5, 'max_hold': 12},
 }
 
 class StrategyBrain:
@@ -272,16 +272,12 @@ class StrategyBrain:
         entry_price = float(row.close)
         
         if side == 'LONG':
-            # Use 3.0x ATR for majors, 3.5x ATR for mid-vol to survive double sweeps
-            sl_atr_mult = 3.0 if pair in ['BTC', 'ETH'] else 3.5
-            tp_atr_mult = 2.5 if pair in ['BTC', 'ETH'] else 3.0
-            sl = entry_price - (sl_atr_mult * atr_now)
-            tp = entry_price + (tp_atr_mult * atr_now)
+            # Use strict, proportional 1.33:1 Reward-to-Risk ratio (survives noise and avoids early choke)
+            sl = entry_price - (1.5 * atr_now)
+            tp = entry_price + (2.0 * atr_now)
         else:
-            sl_atr_mult = 3.0 if pair in ['BTC', 'ETH'] else 3.5
-            tp_atr_mult = 2.5 if pair in ['BTC', 'ETH'] else 3.0
-            sl = entry_price + (sl_atr_mult * atr_now)
-            tp = entry_price - (tp_atr_mult * atr_now)
+            sl = entry_price + (1.5 * atr_now)
+            tp = entry_price - (2.0 * atr_now)
             
         # Layer 6: Risk-to-Reward Safety Checks
         risk = abs(entry_price - sl)
