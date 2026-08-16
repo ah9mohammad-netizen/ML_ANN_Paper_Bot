@@ -42,11 +42,49 @@ class TelegramUI:
         s = self.store.stats()
         pf = s['profit_factor']
         pf_str = '∞' if pf is None else f'{pf:.2f}'
-        return (f"📊 **Paper Bot Stats**\n"
+        
+        # Safe unpacking of advanced counters
+        try:
+            reg_r_total = s['regime_stats']['Ranging']['wins'] + s['regime_stats']['Ranging']['losses']
+            reg_r_wr = (s['regime_stats']['Ranging']['wins'] / reg_r_total) * 100 if reg_r_total > 0 else 0.0
+            
+            reg_t_total = s['regime_stats']['Trending']['wins'] + s['regime_stats']['Trending']['losses']
+            reg_t_wr = (s['regime_stats']['Trending']['wins'] / reg_t_total) * 100 if reg_t_total > 0 else 0.0
+            
+            cat1_total = s['category_stats']['Category 1 (Majors)']['wins'] + s['category_stats']['Category 1 (Majors)']['losses']
+            cat1_wr = (s['category_stats']['Category 1 (Majors)']['wins'] / cat1_total) * 100 if cat1_total > 0 else 0.0
+            
+            cat2_total = s['category_stats']['Category 2 (Mid-Vol)']['wins'] + s['category_stats']['Category 2 (Mid-Vol)']['losses']
+            cat2_wr = (s['category_stats']['Category 2 (Mid-Vol)']['wins'] / cat2_total) * 100 if cat2_total > 0 else 0.0
+            
+            cat3_total = s['category_stats']['Category 3 (High-Vol)']['wins'] + s['category_stats']['Category 3 (High-Vol)']['losses']
+            cat3_wr = (s['category_stats']['Category 3 (High-Vol)']['wins'] / cat3_total) * 100 if cat3_total > 0 else 0.0
+            
+            ratio_str = f"{s['wl_ratio']:.2f}"
+            avg_win_str = f"{s['avg_win']:.2f}"
+            avg_loss_str = f"{s['avg_loss']:.2f}"
+            
+            advanced_msg = (
+                f"\n⚖️ Avg Win/Loss: {avg_win_str}/{avg_loss_str} (Ratio: {ratio_str})\n\n"
+                f"🔄 **REGIME AUDIT COHORT:**\n"
+                f"  • Ranging  : {reg_r_wr:.1f}% ({s['regime_stats']['Ranging']['wins']}W/{s['regime_stats']['Ranging']['losses']}L)\n"
+                f"  • Trending : {reg_t_wr:.1f}% ({s['regime_stats']['Trending']['wins']}W/{s['regime_stats']['Trending']['losses']}L)\n\n"
+                f"📊 **CATEGORY AUDIT COHORT:**\n"
+                f"  • Cat 1 (Majors) : {cat1_wr:.1f}% ({s['category_stats']['Category 1 (Majors)']['wins']}W/{cat1_total - s['category_stats']['Category 1 (Majors)']['wins']}L)\n"
+                f"  • Cat 2 (Mid-Vol): {cat2_wr:.1f}% ({s['category_stats']['Category 2 (Mid-Vol)']['wins']}W/{cat2_total - s['category_stats']['Category 2 (Mid-Vol)']['wins']}L)\n"
+                f"  • Cat 3 (High-Vol): {cat3_wr:.1f}% ({s['category_stats']['Category 3 (High-Vol)']['wins']}W/{cat3_total - s['category_stats']['Category 3 (High-Vol)']['wins']}L)"
+            )
+        except Exception:
+            advanced_msg = ""
+
+        return (f"📊 **PORTFOLIO QUANT AUDIT REPORT**\n"
+                f"--------------------------------------------------\n"
                 f"💰 Balance: {s['balance']:.2f} USDT\n"
-                f"📉 Realized PnL: {s['realized_pnl']:.2f}\n"
+                f"📈 Realized PnL: {s['realized_pnl']:.2f}\n"
                 f"🔄 Open: {s['open_positions']} | ✅ Closed: {s['closed_positions']}\n"
-                f"🎯 Win Rate: {s['win_rate']:.1f}% | PF: {pf_str}\n"
+                f"🎯 Win Rate: {s['win_rate']:.1f}% | PF: {pf_str}"
+                f"{advanced_msg}\n"
+                f"--------------------------------------------------\n"
                 f"📡 Signals Checked: {s['signals']}")
 
     def handle_text(self, text):
