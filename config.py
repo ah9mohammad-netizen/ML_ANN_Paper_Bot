@@ -11,7 +11,7 @@ class BotConfig:
         'PAIRS', 'BTC,ETH,SOL,LINK,NEAR,SUI,APT,HYPE,PEPE,WIF,FET,DOGE'
     ).split(','))
 
-    starting_balance: float = float(os.getenv('STARTING_BALANCE', '100'))
+    starting_balance: float = float(os.getenv('STARTING_BALANCE', '1000'))
 
     # Risk parameters (Optimized for balance management)
     risk_per_trade_pct: float = float(os.getenv('RISK_PER_TRADE_PCT', '1.0'))
