@@ -90,10 +90,23 @@ class TelegramUI:
     def handle_text(self, text):
         t = text.strip().lower()
         if t in ['/start', '/help']:
-            self.send('🤖 Commands:\n/stats - Show performance\n/open - View open trades\n/recent - View last 10 signals\n/backup - Download the .db file\n/pause - Stop new entries\n/resume - Start new entries')
+            self.send('🤖 Commands:\n/stats - Show performance\n/open - View open trades\n/recent - View last 10 signals\n/backup - Download the .db file\n/pause - Stop new entries\n/resume - Start new entries\n/reset [amount] - Reset paper balance (e.g. /reset 1000)')
         
         elif t == '/stats':
             self.send(self.format_stats())
+            
+        elif t.startswith('/reset'):
+            try:
+                parts = text.strip().split()
+                if len(parts) > 1:
+                    amount = float(parts[1])
+                    self.store.set_balance(amount)
+                    self.store.set_state('realized_pnl', 0.0)  # reset realized PnL too
+                    self.send(f"✅ Paper balance and statistics successfully reset to {amount:.2f} USDT!")
+                else:
+                    self.send("⚠️ Usage: /reset [amount] (e.g. /reset 1000)")
+            except Exception as e:
+                self.send(f"❌ Failed to reset balance: {e}")
         
         elif t == '/pause':
             self.store.set_paused(True)
