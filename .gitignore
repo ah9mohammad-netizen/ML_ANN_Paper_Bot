@@ -8,6 +8,10 @@ __pycache__/
 .env
 *.db
 
+# Research data artifacts (frozen datasets are large; manifest stays in git)
+research/data/frozen/*.parquet
+research/output/
+
 # DO NOT ignore the model artifacts
 !artifacts/ann_mtf_v3_model.joblib
 !artifacts/ann_mtf_v3_meta.json

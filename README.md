@@ -3,6 +3,11 @@
 A single-process **paper trading** bot for crypto perpetual-style strategies, backed by
 SQLite, controlled over Telegram. No exchange keys required — it never places real orders.
 
+📐 **Research harness:** `research/` contains the Phase 2 gate (frozen multi-regime
+data, event-realistic backtester with funding costs, lookahead + recursive bias audits,
+regime slicing). Run `bash run_research_gate.sh` anywhere with exchange access;
+see `research/README.md`. Gate thresholds are pre-registered in `PHASE2_RESEARCH_GATE.md`.
+
 > **Honesty note (Phase 0, 2026-08-22):** This repo was previously named "ML_ANN" and its
 > reports referenced probability models, an ADX regime-sizing engine, order-block pullback
 > entries and Heikin-Ashi confirmations. **None of that exists in code.** This build is a
