@@ -105,9 +105,15 @@ class PortfolioBacktester:
         frames = {p: data[p].sort_index() for p in pairs}
         if self.use_fast:
             from .signals_fast import compute_signals
-            if set(self._sig_frames) != set(pairs) or any(
-                    self._sig_frames[p].index is not frames[p].index for p in pairs):
-                self._sig_frames = {p: compute_signals(p, f) for p, f in frames.items()}
+            # Built atomically from THIS run's frames on every run — never
+            # cached across runs. Pandas index-object identity is not a safe
+            # coherence key; co-building guarantees df/sig length consistency.
+            self._sig_frames = {}
+            for p, f in frames.items():
+                sf = compute_signals(p, f)
+                assert len(sf) == len(f), (
+                    f'signal/data length mismatch on {p}: {len(sf)} vs {len(f)}')
+                self._sig_frames[p] = sf
             # seen-signals are an INFORMATION-SET property: count them from the
             # matrix so the metric is invariant to portfolio state and shifts
             n_signals = sum(
@@ -117,16 +123,22 @@ class PortfolioBacktester:
         else:
             n_signals = 0
 
-        # Merged chronological candle cursor across all pairs
-        streams = [(frames[p].index, p) for p in pairs]
-        merged = heapq.merge(*[((ts, i, p) for i, ts in enumerate(ix)) for ix, p in streams],
-                             key=lambda x: x[0])
-
         equity = float(self.cfg.starting_balance)
         start_balance = equity
         open_pos: dict[str, dict] = {}
         trades = []
         equity_curve = []
+
+        # Merged chronological candle cursor across all pairs.
+        # NOTE: use a generator FUNCTION per stream — a list-comprehension
+        # generator expression would late-bind the pair variable and mislabel
+        # every event as the last pair (root cause of the iat IndexError).
+        def _events(ix, name):
+            for idx, t in enumerate(ix):
+                yield (t, idx, name)
+
+        merged = heapq.merge(*[_events(frames[p].index, p) for p in pairs],
+                             key=lambda x: x[0])
 
         for ts, i, pair in merged:
             df = frames[pair]
@@ -167,7 +179,7 @@ class PortfolioBacktester:
                 continue
             if self.use_fast:
                 sf = self._sig_frames[pair]
-                if not sf.signal.iat[i]:
+                if i >= len(sf.index) or not sf.signal.iat[i]:
                     continue
                 sig = {
                     'pair': pair, 'side': sf.side.iat[i],
