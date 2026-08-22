@@ -10,6 +10,10 @@ __pycache__/
 # Ignore environment variables and local databases
 .env
 
+> ⚠️ **ACCURACY BANNER (added 2026-08-22, Phase 0):** This audit is preserved as historical record. Several capabilities it describes — the ADX Regime-Adaptive Sizing Engine, order-block pullback entries, Market Structure Shift layer, Heikin-Ashi 1m confirmation, and any ANN/probability model — **were never present in the shipped code**, and the headline "PF 4.75–5.82" figure was produced by post-hoc removal of losing pairs (selection bias). The honest raw result in this document is Phase 5: **68.7% WR, PF 1.21, +6.08 USDT with 10.39 USDT fees**. The current README documents what the bot actually runs now.
+
+---
+
 # Multi-Strategy Comparative Analysis (Category 1 & 2)
 
 This report presents a competitive quantitative backtest of the three most popular institutional day-trading and scalping strategies applied strictly to **Category 1 (Majors)** and **Category 2 (Mid-Vol)**.

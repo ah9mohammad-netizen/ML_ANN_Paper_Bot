@@ -25,6 +25,12 @@ class BotConfig:
     taker_fee_pct: float = float(os.getenv('TAKER_FEE_PCT', '0.04'))
     slippage_pct: float = float(os.getenv('SLIPPAGE_PCT', '0.02'))
 
+    # Perp funding cost model (Phase 0: was completely unmodeled at 10x leverage).
+    # Flat conservative rate charged per 8h funding boundary crossed while a
+    # position is open, applied to NOTIONAL in both directions.
+    # OKX baseline is typically +/-0.01%/8h, often 3-5x that on meme majors.
+    funding_rate_pct_8h: float = float(os.getenv('FUNDING_RATE_PCT_8H', '0.01'))
+
     # Polling loop (60s is ideal for 5m scalper mode)
     poll_seconds: int = int(os.getenv('POLL_SECONDS', '60'))
 

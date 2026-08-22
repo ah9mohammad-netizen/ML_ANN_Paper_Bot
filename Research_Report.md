@@ -1,3 +1,7 @@
+> ⚠️ **ACCURACY BANNER (added 2026-08-22, Phase 0):** Kept for reference. The quoted win rates (e.g. "99.3%") come from community Freqtrade backtests achieved with no hard stop-loss / DCA — those numbers are not comparable to this bot's fixed-stop economics, and win rate alone is not a profitability metric (expectancy after fees is). The multi-mode `STRATEGY_MODE` architecture proposed below was only partially implemented; the live bot runs the two engines documented in the README.
+
+---
+
 # Research Report: High Win-Rate Automated Trading Strategies (>70% Win Rate)
 
 This report presents a deep-dive research into 10 successful algorithmic trading strategies compiled from public trading archives, quantitative repositories (including popular `Freqtrade` and custom Python bots), and institutional frameworks. It also provides actionable recommendations to optimize your current Railway-hosted paper trading bots, which are experiencing low signal frequencies and underperforming results.
