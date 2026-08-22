@@ -90,7 +90,7 @@ class TelegramUI:
     def handle_text(self, text):
         t = text.strip().lower()
         if t in ['/start', '/help']:
-            self.send('🤖 Commands:\n/stats - Show performance\n/open - View open trades\n/recent - View last 10 signals\n/backup - Download the .db file\n/pause - Stop new entries\n/resume - Start new entries\n/reset [amount] - Reset paper balance (e.g. /reset 1000)')
+            self.send('🤖 Commands:\n/stats - Show performance\n/open - View open trades\n/recent - View last 10 signals\n/backup - Download the .db file\n/pause - Stop new entries\n/resume - Start new entries\n/reset [amount] - WIPE all history & reset balance (e.g. /reset 1000)')
         
         elif t == '/stats':
             self.send(self.format_stats())
@@ -100,9 +100,10 @@ class TelegramUI:
                 parts = text.strip().split()
                 if len(parts) > 1:
                     amount = float(parts[1])
-                    self.store.set_balance(amount)
-                    self.store.set_state('realized_pnl', 0.0)  # reset realized PnL too
-                    self.send(f"✅ Paper balance and statistics successfully reset to {amount:.2f} USDT!")
+                    # Phase 0 fix: fully wipe signals + positions too, otherwise
+                    # old trades keep contaminating /stats across test phases.
+                    self.store.reset_all(amount)
+                    self.send(f"✅ Full reset complete.\n💰 Balance: {amount:.2f} USDT\n🧹 All signals & positions wiped. Stats now start from a clean cohort.")
                 else:
                     self.send("⚠️ Usage: /reset [amount] (e.g. /reset 1000)")
             except Exception as e:
