@@ -105,3 +105,52 @@ def fetch_okx(sym, tf, limit=300):
     for c in ['open','high','low','close','volume']:
         df[c] = pd.to_numeric(df[c], errors='coerce')
     return df.sort_values('ts').drop_duplicates('ts').set_index('ts')[['open','high','low','close','volume']]
+
+
+def fetch_ticker(sym):
+    """Current last-traded price for a pair.
+
+    Phase 0 fix: the paper engine previously marked positions on the last
+    CONFIRMED candle close, which can be up to 15 minutes stale on the 15m
+    timeframe (missed intrabar stop-outs, phantom fills). Position management
+    must use the live ticker instead; candles stay for signal generation only.
+
+    Returns float price or None if every venue failed.
+    """
+    pair = f'{sym}-USDT'
+    okx_endpoints = [
+        'https://aws.okx.com',
+        'https://www.okx.com',
+        'https://www.okx.cab',
+        'https://www.okx.ceo',
+    ]
+    for base_url in okx_endpoints:
+        try:
+            r = requests.get(f'{base_url}/api/v5/market/ticker',
+                             params={'instId': pair}, timeout=8)
+            js = r.json()
+            if js.get('code') == '0' and js.get('data'):
+                px = float(js['data'][0]['last'])
+                if np.isfinite(px) and px > 0:
+                    return px
+        except Exception:
+            continue
+
+    # Binance failover
+    binance_gateways = [
+        'https://api.binance.com',
+        'https://api1.binance.com',
+        'https://api3.binance.com',
+    ]
+    for base_url in binance_gateways:
+        try:
+            r = requests.get(f'{base_url}/api/v3/ticker/price',
+                             params={'symbol': f'{sym.upper()}USDT'}, timeout=8)
+            js = r.json()
+            px = float(js.get('price', 0) or 0)
+            if np.isfinite(px) and px > 0:
+                return px
+        except Exception:
+            continue
+
+    return None

@@ -65,7 +65,9 @@ def analyze_dataframe(df):
         pass
 
     # 4. Drawdown Calculation
-    starting_balance = 100.0
+    # Phase 0 fix: was hardcoded to 100.0 while the bot config defaults to
+    # STARTING_BALANCE=1000, making reported drawdown 10x too small.
+    starting_balance = float(os.getenv('STARTING_BALANCE', '1000'))
     closed_df = closed_df.sort_values('closed_at')
     balance_curve = starting_balance + closed_df['pnl'].cumsum()
     running_max = balance_curve.cummax()

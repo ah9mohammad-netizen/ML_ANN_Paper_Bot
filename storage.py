@@ -89,6 +89,18 @@ class Store:
     def paused(self): return bool(self.get_state('paused',False))
     def set_paused(self,x): self.set_state('paused',bool(x))
 
+    def reset_all(self, amount):
+        """Phase 0 fix: /reset previously zeroed the balance but LEFT all
+        closed positions and signals in the DB, silently contaminating every
+        later stats/win-rate readout across test phases. This fully wipes
+        trade history so each phase measures a clean cohort."""
+        self.conn.execute('DELETE FROM positions')
+        self.conn.execute('DELETE FROM signals')
+        self.set_balance(amount)
+        self.set_state('realized_pnl', 0.0)
+        self.set_state('last_signal_key', {})
+        self.conn.commit()
+
     def open_positions(self):
         return self.conn.execute("SELECT * FROM positions WHERE status='OPEN' ORDER BY opened_at").fetchall()
 
