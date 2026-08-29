@@ -1,1 +1,1 @@
-worker: python main.py
+worker: cd bot && python runner.py

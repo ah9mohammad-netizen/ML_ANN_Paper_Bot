@@ -1,0 +1,167 @@
+######################################################################
+# 1. TIMEFRAME SWEEP (walk-forward, folds extended toward 2026-08)
+######################################################################
+  1h  n=2022 PF=1.06 CI[0.94,1.19] expR=+0.047 Sharpe= 0.23 DD= 57.4% t= 1.26 win=40.6% folds=12 2023-01-01->2026-08-12
+  2h  n= 953 PF=0.96 CI[0.79,1.15] expR=-0.011 Sharpe=-0.18 DD= 46.3% t=-0.20 win=38.2% folds=12 2023-01-01->2026-08-12
+  4h  n= 596 PF=1.11 CI[0.89,1.36] expR=+0.061 Sharpe= 0.28 DD= 31.4% t= 1.02 win=43.3% folds=12 2023-01-01->2026-08-12
+  8h  n= 158 PF=0.96 CI[0.60,1.49] expR=-0.016 Sharpe=-0.06 DD= 17.9% t=-0.17 win=43.0% folds=12 2023-01-01->2026-08-12
+  1d: no trades
+
+######################################################################
+# 2. BEST TIMEFRAME = 1h
+######################################################################
+── squeeze @ 1h · OUT-OF-SAMPLE walk-forward ─────────────────
+  window        2023-01-01 → 2026-08-12
+  trades        2022   (10.7/wk)   avg hold 41.6h
+  win rate      40.6%      payoff 1.55
+  profit factor 1.06   95% CI [0.94, 1.19]
+  expectancy    +0.047 R   (+0.26 USDT/trade)
+  net pnl       +521.54 USDT   total +4.3%   CAGR +1.2%
+  max drawdown  57.4%     Calmar 0.02
+  Sharpe 0.23   Sortino 0.30   t-stat 1.26
+  fees 559.67 + funding 0.00  (fees = 6% of gross profit)
+  P(edge>0) 0.84   liquidations 0
+  exits         {'SL': 1976, 'EOD': 31, 'SL_GAP': 12, 'TP': 3}
+
+  fold-by-fold:
+ fold      train       test  score_train  squeeze_n  squeeze_q  entry_n  sl_atr  trail_atr  trail_start_r  ema_filter  oos_trades  oos_pf  oos_expR  oos_wr
+    1 2022-01-01 2023-01-01         0.91         96       0.20       30     3.5        4.5            0.5         200         100    0.63    -0.216    30.0
+    2 2022-04-21 2023-04-21         2.01         96       0.35       48     3.5        2.0            0.5         200         125    0.66    -0.177    43.2
+    3 2022-08-09 2023-08-09         0.49         96       0.35       20     2.5        4.5            0.0           0         207    0.96     0.032    30.9
+    4 2022-11-27 2023-11-27         0.65         96       0.35       30     2.0        4.5            0.5         200         179    0.73    -0.153    23.5
+    5 2023-03-17 2024-03-16         0.42         96       0.35       30     2.0        4.5            0.5         200         181    1.30     0.237    32.0
+    6 2023-07-05 2024-07-04         0.67         96       0.35       30     2.0        4.5            0.5         200         191    0.99     0.017    27.7
+    7 2023-10-23 2024-10-22         1.36        192       0.35       48     3.5        3.0            0.0           0         154    1.56     0.279    52.6
+    8 2024-02-10 2025-02-09         3.17        192       0.35       48     3.5        3.0            0.0           0         131    1.40     0.241    50.4
+    9 2024-05-30 2025-05-30         3.39        192       0.35       30     3.5        3.0            0.0           0         202    1.00     0.014    44.6
+   10 2024-09-17 2025-09-17         3.01        192       0.35       48     3.5        3.0            0.0           0         135    1.19     0.134    51.9
+   11 2025-01-05 2026-01-05         3.25         96       0.35       20     3.5        2.0            0.0           0         205    1.30     0.161    53.7
+   12 2025-04-25 2026-04-25         3.90         96       0.35       20     3.5        2.0            0.0           0         212    0.86    -0.070    48.6
+
+  parameter stability:
+{
+ "squeeze_n": {
+  "mode": "96",
+  "mean": 128.0,
+  "cv": 0.37,
+  "n_distinct": 2
+ },
+ "squeeze_q": {
+  "mode": 0.35,
+  "mean": 0.337,
+  "cv": 0.13,
+  "n_distinct": 2
+ },
+ "entry_n": {
+  "mode": "30",
+  "mean": 33.5,
+  "cv": 0.34,
+  "n_distinct": 3
+ },
+ "sl_atr": {
+  "mode": 3.5,
+  "mean": 3.042,
+  "cv": 0.23,
+  "n_distinct": 3
+ },
+ "trail_atr": {
+  "mode": 4.5,
+  "mean": 3.375,
+  "cv": 0.32,
+  "n_distinct": 3
+ },
+ "trail_start_r": {
+  "mode": 0.0,
+  "mean": 0.208,
+  "cv": 1.24,
+  "n_distinct": 2
+ },
+ "ema_filter": {
+  "mode": "0",
+  "mean": 83.333,
+  "cv": 1.24,
+  "n_distinct": 2
+ }
+}
+
+  squeeze@1h by mkt:
+ mkt   n  win%   PF   expR    pnl
+chop 785  41.8 1.17  0.130  604.1
+bear 472  46.0 1.08  0.046  174.5
+bull 765  36.1 0.92 -0.037 -257.1
+
+  squeeze@1h by symbol:
+symbol   n  win%   PF   expR    pnl
+   SOL 232  47.0 1.32  0.203  307.9
+  AVAX 194  40.2 1.19  0.114  165.3
+   ETH 209  36.8 1.09  0.099   92.3
+   XRP 184  42.4 1.10  0.086   80.4
+  NEAR 208  40.4 1.03 -0.010   29.1
+  DOGE 201  37.3 1.02  0.026   23.2
+  LINK 230  43.9 1.02  0.012   20.4
+   SUI 165  36.4 1.01 -0.015    5.6
+   APT 197  40.6 0.92 -0.041  -69.7
+   BTC 202  39.1 0.86 -0.029 -132.9
+
+  squeeze@1h by dir:
+  dir    n  win%   PF  expR   pnl
+SHORT 1022  40.1 1.06 0.052 286.2
+ LONG 1000  41.1 1.05 0.042 235.3
+
+  modal params: {'squeeze_n': 96, 'squeeze_q': 0.35, 'entry_n': 30, 'sl_atr': 3.5, 'trail_atr': 4.5, 'trail_start_r': 0.0, 'ema_filter': 0}
+
+######################################################################
+# 3. COST SENSITIVITY (modal params, full 2022-2026 sample)
+######################################################################
+  maker 2bps         n= 133 PF=0.52 expR=-0.319 net=  -277.8 DD= 35.2% Sharpe=-0.83
+  taker 5bps (base)  n= 128 PF=0.46 expR=-0.386 net=  -312.9 DD= 35.7% Sharpe=-0.99
+  taker 7.5bps       n= 124 PF=0.46 expR=-0.385 net=  -304.1 DD= 35.5% Sharpe=-0.98
+  taker 10bps        n= 123 PF=0.46 expR=-0.384 net=  -301.0 DD= 35.5% Sharpe=-0.98
+
+######################################################################
+# 4. PARAMETER NEIGHBOURHOOD (full sample, one knob at a time)
+######################################################################
+  squeeze_n       96:PF0.46/n128   192:PF0.96/n677
+  squeeze_q       0.2:PF0.92/n644   0.35:PF0.46/n128
+  entry_n         20:PF0.56/n170   30:PF0.46/n128   48:PF0.93/n802
+  sl_atr          2.0:PF0.65/n159   2.5:PF0.67/n210   3.5:PF0.46/n128
+  trail_atr       2.0:PF0.60/n203   3.0:PF0.59/n191   4.5:PF0.46/n128
+  trail_start_r   0.0:PF0.46/n128   0.5:PF0.60/n185
+  ema_filter      0:PF0.46/n128   200:PF0.94/n959
+
+######################################################################
+# 5. FULL-SAMPLE RUN WITH MODAL PARAMS (in-sample reference only)
+######################################################################
+── squeeze @ 1h · full sample, modal params ──────────────────
+  window        2022-01-01 → 2026-08-29
+  trades        128   (0.5/wk)   avg hold 50.3h
+  win rate      21.9%      payoff 1.63
+  profit factor 0.46   95% CI [0.23, 0.74]
+  expectancy    -0.386 R   (-2.44 USDT/trade)
+  net pnl       -312.94 USDT   total -32.1%   CAGR -8.0%
+  max drawdown  35.7%     Calmar -0.22
+  Sharpe -0.99   Sortino -0.27   t-stat -3.65
+  fees 16.84 + funding 0.00  (fees = 6% of gross profit)
+  P(edge>0) 0.00   liquidations 0
+  exits         {'SL': 128}
+  blocked       {'symbol_locked': 148, 'max_open': 60}
+
+  full-sample by mkt:
+ mkt   n  win%   PF   expR    pnl
+chop 128  21.9 0.46 -0.386 -312.9
+
+  full-sample by symbol:
+symbol  n  win%   PF   expR   pnl
+  AVAX 13  30.8 1.21  0.096  10.2
+  DOGE 16  25.0 0.93 -0.042  -4.5
+  NEAR 13  23.1 0.45 -0.339 -30.2
+  LINK 13  15.4 0.39 -0.413 -32.1
+   BTC 16  18.8 0.34 -0.529 -58.9
+   XRP 16  18.8 0.12 -0.587 -61.0
+   SOL 18  22.2 0.24 -0.612 -67.7
+   ETH 23  21.7 0.36 -0.492 -68.7
+
+  full-sample by dir:
+  dir  n  win%   PF   expR    pnl
+SHORT 65  27.7 0.65 -0.243  -95.7
+ LONG 63  15.9 0.27 -0.533 -217.3

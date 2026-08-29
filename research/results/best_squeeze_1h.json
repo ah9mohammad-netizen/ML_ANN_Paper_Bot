@@ -1,0 +1,12 @@
+{
+  "timeframe": "1h",
+  "params": {
+    "squeeze_n": 96,
+    "squeeze_q": 0.35,
+    "entry_n": 30,
+    "sl_atr": 3.5,
+    "trail_atr": 4.5,
+    "trail_start_r": 0.0,
+    "ema_filter": 0
+  }
+}

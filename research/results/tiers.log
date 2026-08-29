@@ -1,0 +1,80 @@
+timeframe 8h   assets loaded: 18
+  large  ['BTC', 'ETH', 'BNB', 'XRP', 'TRX', 'LTC', 'ADA']
+  mid    ['SOL', 'LINK', 'AVAX', 'NEAR', 'APT', 'SUI']
+  low    ['DOGE', 'PEPE', 'SHIB', 'WIF', 'HYPE']
+
+########################################################################
+# A. POOLED — one parameter set fitted across the whole universe
+########################################################################
+  pooled (all assets)    n= 238 PF=0.92 CI[0.63,1.30] expR=-0.040 Sh=-0.18 DD= 19.3% t=-0.44 win=38.7%
+
+########################################################################
+# B. PER-TIER — each tier picks its own strategy family and thresholds
+########################################################################
+  tier large             n= 133 PF=1.27 CI[0.74,2.02] expR=+0.147 Sh= 0.31 DD= 19.0% t= 0.90 win=39.1%
+  tier mid               n= 196 PF=1.41 CI[0.87,2.17] expR=+0.208 Sh= 0.52 DD= 12.1% t= 1.34 win=41.8%
+  tier low               n=  68 PF=0.89 CI[0.42,1.71] expR=-0.060 Sh=-0.08 DD= 11.9% t=-0.32 win=33.8%
+
+── PER-TIER combined (3 books traded together) ───────────────
+  window        2023-03-13 → 2026-08-12
+  trades        397   (2.2/wk)   avg hold 186.9h
+  win rate      39.5%      payoff 1.93
+  profit factor 1.26   95% CI [0.90, 1.71]
+  expectancy    +0.142 R   (+1.03 USDT/trade)
+  net pnl       +409.19 USDT   total +40.9%   CAGR +10.6%
+  max drawdown  13.6%     Calmar 0.77
+  Sharpe 2.62   Sortino 15.89   t-stat 1.43
+  fees 44.92 + funding 0.00  (fees = 2% of gross profit)
+  P(edge>0) 0.92   liquidations 0
+  exits         {'SL': 324, 'EOD': 43, 'TP': 14, 'TIME': 14, 'SL_GAP': 2}
+
+########################################################################
+# C. VERDICT
+########################################################################
+                 design   n   PF  PF_CI_lo   expR  Sharpe  maxDD%     t
+    pooled (1 strategy) 238 0.92      0.63 -0.040   -0.18    19.3 -0.44
+per-tier (3 strategies) 397 1.26      0.90  0.142    2.62    13.6  1.43
+
+  what each tier actually selected (fold by fold):
+   large  families={'donchian': 5, 'squeeze': 4, 'pullback': 3}  filter={'none': 7, 'align': 5}  long_only={True: 7, False: 5}
+   mid    families={'donchian': 7, 'pullback': 3, 'squeeze': 2}  filter={'none': 7, 'align': 5}  long_only={False: 6, True: 6}
+   low    families={'pullback': 5, 'squeeze': 5, 'donchian': 2}  filter={'align': 6, 'none': 6}  long_only={True: 10, False: 2}
+
+  per-tier out-of-sample detail:
+ tier   n  win%   PF  PF_CI_lo   expR  maxDD%     t
+large 133  39.1 1.27      0.74  0.147    19.0  0.90
+  mid 196  41.8 1.41      0.87  0.208    12.1  1.34
+  low  68  33.8 0.89      0.42 -0.060    11.9 -0.32
+
+  tier x regime:
+ tier regime  n  win%   PF   expR
+large   bear 28  32.1 0.47 -0.315
+large   bull 51  43.1 1.98  0.539
+large   chop 54  38.9 1.04  0.016
+  low   bear 12  25.0 1.01  0.012
+  low   bull 29  37.9 1.21  0.105
+  low   chop 27  33.3 0.53 -0.269
+  mid   bear 25  44.0 0.67 -0.151
+  mid   bull 92  41.3 1.34  0.181
+  mid   chop 79  41.8 1.69  0.352
+
+  per-symbol (per-tier design):
+ tier symbol  n  win%   PF   pnl
+large    BNB 15  73.3 8.55 192.4
+large    BTC 19  36.8 1.59  45.4
+large    ETH 19  26.3 1.19  19.7
+large    XRP 17  47.1 1.05   3.2
+large    TRX 23  39.1 1.02   1.6
+large    LTC 20  30.0 0.37 -55.8
+large    ADA 20  30.0 0.46 -56.0
+  low    WIF  9  44.4 1.84  27.2
+  low   PEPE 14  21.4 1.18  12.9
+  low   DOGE 18  50.0 1.05   3.0
+  low   HYPE  4   0.0 0.00 -16.8
+  low   SHIB 23  30.4 0.46 -57.7
+  mid    SOL 34  44.1 2.91 207.7
+  mid   LINK 30  40.0 1.64  74.8
+  mid   AVAX 38  47.4 1.50  59.9
+  mid   NEAR 33  45.5 1.27  31.4
+  mid    SUI 24  37.5 0.97  -2.6
+  mid    APT 37  35.1 0.48 -81.2
