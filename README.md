@@ -77,13 +77,15 @@ strategy you add must pass it before its backtest means anything.
 bot/
   runner.py     main loop — bar-driven, not poll-driven
   botconfig.py  env config with validation that refuses nonsense
-  feed.py       closed-bar-only feed, incremental, multi-venue, staleness aware
+  feed.py       closed-bar-only feed — bar-aligned cache, token bucket,
+                concurrent refresh, per-symbol circuit breaker, telemetry
   broker.py     paper execution — exits evaluated on closed 1-MINUTE bars
   risk.py       pre-trade gates and kill switches
   store.py      SQLite with schema versioning and equity snapshots
   metrics.py    expectancy in R, bootstrap CIs, and a verdict that says
                 "insufficient data" until 100 closed trades
   tg.py         Telegram UI
+  diag.py       standalone connectivity / data-freshness probe
 ```
 
 ### What changed vs the old bot
@@ -141,6 +143,10 @@ APPLY_FUNDING=true
 
 # --- ops
 POLL_SECONDS=30
+IDLE_POLL_SECONDS=60
+SNAPSHOT_SECONDS=300
+API_RATE_PER_SEC=6
+API_WORKERS=6
 HEARTBEAT_HOURS=12
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_CHAT_ID=...
@@ -154,11 +160,15 @@ silence between them. That is the strategy working as designed, not a fault.
 
 ### Telegram
 
-`/stats` `/open` `/recent` `/signals` `/risk` `/config` `/pause` `/resume`
-`/halt` `/flat` `/backup` `/reset CONFIRM <amount>`
+`/stats` `/open` `/recent` `/signals` `/risk` `/config` `/api` `/diag`
+`/pause` `/resume` `/halt` `/flat` `/backup` `/reset CONFIRM <amount>`
 
 `/stats` reports expectancy in R with a confidence interval alongside win rate,
-and refuses to call anything an edge below 100 closed trades.
+and refuses to call anything an edge below 100 closed trades. `/api` shows the
+request budget, latency percentiles and circuit-breaker state; `/diag` reports
+data freshness and the market gate.
+
+Operational changes since the first v2 cut are in `bot/CHANGELOG_v2.1.md`.
 
 ---
 

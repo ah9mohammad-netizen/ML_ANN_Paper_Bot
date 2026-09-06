@@ -19,11 +19,15 @@ HELP = """*Commands*
 /halt — stop entries immediately and flag it
 /flat — close every open position at market (paper)
 /backup — send the SQLite database file
-/reset CONFIRM <amount> — wipe all trades and reset equity"""
+/reset CONFIRM <amount> — wipe all trades and reset equity
+/ping — confirm the bot can reach this chat
+/diag — why am I not trading? market gate + distance to every entry
+/api — request counts, errors, throttling, next scan time"""
 
 
 class Telegram:
-    def __init__(self, token, chat_id, store, broker, risk, cfg, log):
+    def __init__(self, token, chat_id, store, broker, risk, cfg, log, runner=None):
+        self.runner = runner
         self.token, self.chat = token, str(chat_id or "")
         self.base = f"https://api.telegram.org/bot{token}" if token else ""
         self.store, self.broker, self.risk, self.cfg, self.log = \
@@ -35,18 +39,93 @@ class Telegram:
         return bool(self.token and self.chat)
 
     def send(self, text, md=True):
+        """Send, and actually check that it landed.
+
+        Telegram rejects malformed Markdown with HTTP 400 and drops the
+        message. Underscores in parameter names (`entry_n`, `sl_atr`) and
+        brackets in dicts are enough to trigger it. The old version posted and
+        ignored the response, so a broken message looked exactly like a dead
+        bot. Now: verify, fall back to plain text, and log the reason."""
         if not self.on():
             self.log.info("[tg] %s", text)
-            return
+            return False
+        body = text[:4000]
+        for attempt, mode in enumerate(("Markdown", None) if md else (None,)):
+            p = {"chat_id": self.chat, "text": body,
+                 "disable_web_page_preview": True}
+            if mode:
+                p["parse_mode"] = mode
+            try:
+                r = requests.post(self.base + "/sendMessage", json=p, timeout=15)
+                if r.status_code == 200 and r.json().get("ok"):
+                    return True
+                desc = ""
+                try:
+                    desc = r.json().get("description", "")
+                except Exception:
+                    desc = r.text[:200]
+                if attempt == 0 and md:
+                    self.log.warning("telegram rejected Markdown (%s) — "
+                                     "resending as plain text", desc)
+                    continue
+                self._warn(f"telegram send failed [{r.status_code}]: {desc}")
+                return False
+            except Exception as e:
+                if attempt == 0 and md:
+                    continue
+                self._warn(f"telegram send error: {e}")
+                return False
+        return False
+
+    def _warn(self, msg):
+        if time.time() - self._last_err > 120:
+            self.log.warning(msg)
+            self._last_err = time.time()
+
+    def verify(self):
+        """Boot check. A wrong chat ID is the classic silent failure — the bot
+        runs perfectly and you never hear from it. Diagnose it at startup
+        instead of a week later."""
+        if not self.token:
+            self.log.warning("TELEGRAM_BOT_TOKEN is not set — running "
+                             "headless, all output goes to the log")
+            return False
+        if not self.chat:
+            self.log.error("TELEGRAM_BOT_TOKEN is set but TELEGRAM_CHAT_ID is "
+                           "empty — the bot cannot message you")
+            return False
         try:
-            requests.post(self.base + "/sendMessage",
-                          json={"chat_id": self.chat, "text": text[:4000],
-                                "parse_mode": "Markdown" if md else None,
-                                "disable_web_page_preview": True}, timeout=10)
+            me = requests.get(self.base + "/getMe", timeout=15).json()
         except Exception as e:
-            if time.time() - self._last_err > 300:
-                self.log.warning("telegram send failed: %s", e)
-                self._last_err = time.time()
+            self.log.error("cannot reach api.telegram.org: %s", e)
+            return False
+        if not me.get("ok"):
+            self.log.error("TELEGRAM_BOT_TOKEN rejected by Telegram: %s — "
+                           "check you copied the whole token from @BotFather",
+                           me.get("description"))
+            return False
+        uname = (me.get("result") or {}).get("username", "?")
+        try:
+            chat = requests.get(self.base + "/getChat",
+                                params={"chat_id": self.chat}, timeout=15).json()
+        except Exception as e:
+            self.log.error("getChat failed: %s", e)
+            return False
+        if not chat.get("ok"):
+            d = chat.get("description", "")
+            hint = ("send @%s any message from that chat first, then read the "
+                    "id from /getUpdates" % uname)
+            if "chat not found" in d.lower():
+                hint = (f"TELEGRAM_CHAT_ID={self.chat!r} is not a chat @{uname} "
+                        "can see. For a private chat, message the bot once "
+                        "first. For a group, add the bot to the group and use "
+                        "the negative group id (e.g. -1001234567890).")
+            self.log.error("Telegram chat check failed: %s — %s", d, hint)
+            return False
+        c = chat.get("result") or {}
+        self.log.info("Telegram OK: bot @%s -> chat %s (%s)", uname,
+                      self.chat, c.get("title") or c.get("username") or c.get("type"))
+        return True
 
     def send_file(self, path, caption=""):
         if not self.on() or not os.path.exists(path):
@@ -67,6 +146,37 @@ class Telegram:
         c = self.cfg
         if low in ("/start", "/help"):
             return self.send(HELP)
+
+        if low == "/api":
+            r = self.runner
+            if r is None:
+                return self.send("API stats need the runner.")
+            a = r.feed.api_report()
+            nxt = r.feed.seconds_to_next_close(c.timeframe)
+            since = (time.time() - r.last_scan_ts) / 3600 if r.last_scan_ts else None
+            L = [f"requests      {a['total']}  ({a['per_hour']:.1f}/h, "
+                 f"{a['per_day_projected']:.0f}/day projected)",
+                 f"errors        {a['errors']}",
+                 f"rate limited  {a['rate_limited']}",
+                 f"latency       p50 {a['p50_ms']:.0f}ms  p95 {a['p95_ms']:.0f}ms",
+                 f"throttle wait {a['throttle_wait_s']}s total",
+                 f"codes         {a['by_code']}",
+                 f"circuit open  {a['circuit_open'] or 'none'}",
+                 f"cached series {a['cached_series']}",
+                 f"scans done    {r.scans}"
+                 + (f"  (last {since:.1f}h ago)" if since is not None else ""),
+                 f"next scan in  {nxt/3600:.1f}h  (on the {c.timeframe} close)"]
+            if a["last_error"]:
+                L.append(f"last error    {a['last_error']} "
+                         f"({a['last_error_age_s']:.0f}s ago)")
+            return self.send("```\n" + "\n".join(L) + "\n```")
+
+        if low == "/diag":
+            return self.send(self.diagnose())
+
+        if low == "/ping":
+            return self.send("pong — bot is alive and this chat is wired up "
+                             "correctly.", md=False)
 
         if low == "/stats":
             m = metrics.from_store(self.store)
@@ -195,6 +305,71 @@ class Telegram:
             return self.send(f"Reset. Equity {amt:.2f} USDT, all history deleted.")
 
         return self.send("Unknown command. /help")
+
+    def diagnose(self):
+        """Answer the question every quiet trend bot provokes: is it broken, or
+        is there simply nothing to trade? Reports the market gate and how far
+        each symbol sits from its entry level."""
+        import json
+        import indicators as ta
+        c = self.cfg
+        runner = self.runner
+        if runner is None:
+            return "Diagnostics need the runner; not available here."
+        try:
+            params = json.load(open(c.params_file)).get(c.strategies[0], {})
+        except Exception:
+            params = {}
+        L = [f"strategy {c.strategies[0]} @ {c.timeframe} · gate {c.market_filter}",
+             f"pairs {len(c.pairs)} · long_only {params.get('long_only')}", ""]
+
+        btc = runner.feed.bars(c.market_filter_symbol, "1d", need=300)
+        a = runner.feed.api_report()
+        gate = None
+        if btc is None or len(btc) < 130:
+            L.append(f"MARKET GATE: only {0 if btc is None else len(btc)} daily "
+                     f"bars — gate disabled, all signals pass")
+        else:
+            d = ta.resample(btc, "1D")
+            e100 = ta.ema(d.close, 100); r30 = d.close.pct_change(30)
+            px, ev, rv = float(d.close.iloc[-1]), float(e100.iloc[-1]), float(r30.iloc[-1])
+            gate = 1 if (px > ev and rv > 0) else (-1 if (px < ev and rv < 0) else 0)
+            L += [f"MARKET GATE ({c.market_filter_symbol} daily)",
+                  f"  close {px:,.0f} vs EMA100 {ev:,.0f} ({100*(px/ev-1):+.1f}%)",
+                  f"  30d return {100*rv:+.1f}%",
+                  f"  gate = {gate:+d} -> " +
+                  ("longs allowed" if gate > 0 else "LONGS BLOCKED")]
+            if gate <= 0 and params.get("long_only"):
+                L.append("  ** this alone blocks every entry **")
+        L.append("")
+
+        gaps, errs = [], 0
+        n = params.get("entry_n", 48)
+        for s_ in c.pairs:
+            try:
+                df = runner.feed.cache.get((s_, c.timeframe))
+                if df is None or len(df) < 260:
+                    errs += 1; continue
+                hi, _ = ta.donchian(df, n)
+                gaps.append((s_, 100 * (float(df.close.iloc[-1]) /
+                                        float(hi.iloc[-1]) - 1)))
+            except Exception:
+                errs += 1
+        gaps.sort(key=lambda x: -x[1])
+        L.append(f"DISTANCE TO ENTRY ({n}-bar high, needs 0.00%)")
+        for s_, g in gaps[:10]:
+            L.append(f"  {s_:9s} {g:+7.2f}%")
+        if errs:
+            L.append(f"  ({errs} pairs had too little data to evaluate)")
+        L += ["",
+              f"live signals right now: {sum(1 for _, g in gaps if g >= 0)}",
+              f"API {a['total']} calls / {a['errors']} errors / "
+              f"{a['rate_limited']} throttled",
+              f"next scan in {runner.feed.seconds_to_next_close(c.timeframe)/3600:.1f}h",
+              "expected rate ~1.3 trades/week across the universe;",
+              "48h quiet = 69% likely, 7d = 27%, 14d = 7%.",
+              "Past two weeks with nothing, something is probably wrong."]
+        return "```\n" + "\n".join(L)[:3800] + "\n```"
 
     @staticmethod
     def _num(t, d):

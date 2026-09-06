@@ -73,7 +73,9 @@ def verdict(m, min_trades=100):
     if n < min_trades:
         return ("INSUFFICIENT DATA",
                 f"{n}/{min_trades} closed trades. Nothing can be concluded yet — "
-                "a 30-trade sample cannot distinguish a real edge from noise.")
+                f"a sample of {n} cannot separate a real edge from noise. "
+                f"At the expected ~1.3 trades/week that is about "
+                f"{max(0, min_trades - n) / 1.3 / 4.3:.0f} more months.")
     t = m.get("t_stat", 0)
     pf = m.get("profit_factor", 0)
     dd = m.get("max_dd_pct", 100)

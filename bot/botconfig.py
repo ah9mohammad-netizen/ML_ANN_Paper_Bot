@@ -59,7 +59,11 @@ class Config:
 
     # ---- operations
     mode: str = os.getenv("MODE", "paper")           # paper | live (live = not built)
-    poll_seconds: int = _i("POLL_SECONDS", "30")
+    poll_seconds: int = _i("POLL_SECONDS", "30")        # with open positions
+    idle_poll_seconds: int = _i("IDLE_POLL_SECONDS", "60")  # flat, waiting
+    api_rate_per_sec: float = _f("API_RATE_PER_SEC", "6")   # token bucket
+    api_workers: int = _i("API_WORKERS", "6")
+    snapshot_seconds: int = _i("SNAPSHOT_SECONDS", "300")   # equity curve rows
     db_path: str = os.getenv("DB_PATH", "/data/bot.db")
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     paused: bool = _b("PAUSED", "false")
@@ -86,6 +90,9 @@ class Config:
         if self.max_gross_notional > 4:
             errs.append("MAX_GROSS_NOTIONAL > 4x equity on correlated crypto "
                         "is not a risk limit, it is a leveraged directional bet.")
+        if not 0.5 <= self.api_rate_per_sec <= 15:
+            errs.append("API_RATE_PER_SEC must be in [0.5, 15] — OKX public "
+                        "market endpoints allow 20/s and headroom is free")
         if self.taker_fee < 0.0002:
             errs.append("TAKER_FEE below 2bps is not a retail fee tier.")
         if not self.pairs:
