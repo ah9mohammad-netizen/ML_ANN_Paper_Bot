@@ -1,0 +1,21 @@
+{
+  "_source": "Walk-forward, 12 folds, Jan 2023 - Aug 2026, 39 OKX perpetuals, 8h bars. See research/FINDINGS.md.",
+  "_validated_out_of_sample": {
+    "n_trades": 248, "win_rate_pct": 44.4, "payoff": 2.67,
+    "profit_factor": 2.13, "pf_ci95": [1.41, 3.11],
+    "expectancy_R": 0.606, "sharpe": 1.26, "sortino": 0.93,
+    "max_drawdown_pct": 16.0, "calmar": 1.24, "cagr_pct": 19.8,
+    "t_stat": 3.13, "trades_per_week": 1.3
+  },
+  "_important": "Those numbers come from an ADAPTIVE system that refit parameters every 110 days. Frozen forever, this same strategy gives PF ~1.5 and Sharpe ~0.77. Run refit.py quarterly or expect the lower figures.",
+  "donchian": {
+    "entry_n": 48,
+    "sl_atr": 2.0,
+    "trail_atr": 4.5,
+    "trail_start_r": 0.0,
+    "adx_min": 18,
+    "ema_filter": 0,
+    "long_only": true,
+    "max_hold_bars": 0
+  }
+}

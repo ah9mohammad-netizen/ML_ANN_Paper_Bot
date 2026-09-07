@@ -1,0 +1,140 @@
+assets=['BTC', 'ETH', 'SOL', 'LINK', 'XRP', 'DOGE', 'AVAX', 'NEAR', 'APT', 'SUI']  bars={'BTC': 5104, 'ETH': 5104, 'SOL': 5104, 'LINK': 5104, 'XRP': 5104, 'DOGE': 5104, 'AVAX': 5104, 'NEAR': 5104, 'APT': 4231, 'SUI': 3619}
+
+######################################################################
+# A. WALK-FORWARD, liquidation ordering fixed
+######################################################################
+  walk-forward: 12 folds × 36 candidates (train 365d / test 110d)
+   fold 1 test 2023-01-01→2023-04-21  n= 11  PF=1.03  expR=+0.021  {'entry_n': 48, 'sl_atr': 3.0, 'trail_atr': 3.0, 'trail_start_r': 0.0, 'adx_min': 0, 'ema_filter': 200, 'max_hold_bars': 0}
+   fold 2 test 2023-04-21→2023-08-09  n= 14  PF=0.76  expR=-0.110  {'entry_n': 48, 'sl_atr': 3.0, 'trail_atr': 4.5, 'trail_start_r': 0.0, 'adx_min': 0, 'ema_filter': 0, 'max_hold_bars': 0}
+   fold 3 test 2023-08-09→2023-11-27  n= 12  PF=8.11  expR=+2.390  {'entry_n': 30, 'sl_atr': 3.0, 'trail_atr': 4.5, 'trail_start_r': 0.0, 'adx_min': 18, 'ema_filter': 200, 'max_hold_bars': 0}
+   fold 4 test 2023-11-27→2024-03-16  n= 30  PF=2.36  expR=+0.646  {'entry_n': 30, 'sl_atr': 3.0, 'trail_atr': 4.5, 'trail_start_r': 0.0, 'adx_min': 18, 'ema_filter': 0, 'max_hold_bars': 0}
+   fold 5 test 2024-03-16→2024-07-04  n= 12  PF=0.10  expR=-0.495  {'entry_n': 20, 'sl_atr': 3.0, 'trail_atr': 3.0, 'trail_start_r': 0.5, 'adx_min': 0, 'ema_filter': 200, 'max_hold_bars': 0}
+   fold 6 test 2024-07-04→2024-10-22  n=  9  PF=14.93  expR=+0.639  {'entry_n': 48, 'sl_atr': 3.0, 'trail_atr': 4.5, 'trail_start_r': 0.5, 'adx_min': 0, 'ema_filter': 200, 'max_hold_bars': 0}
+   fold 7 test 2024-10-22→2025-02-09  n= 13  PF=4.97  expR=+2.322  {'entry_n': 48, 'sl_atr': 3.0, 'trail_atr': 4.5, 'trail_start_r': 0.0, 'adx_min': 0, 'ema_filter': 0, 'max_hold_bars': 0}
+   fold 8 test 2025-02-09→2025-05-30  n= 26  PF=1.03  expR=+0.021  {'entry_n': 20, 'sl_atr': 2.0, 'trail_atr': 4.5, 'trail_start_r': 0.0, 'adx_min': 18, 'ema_filter': 0, 'max_hold_bars': 0}
+   fold 9 test 2025-05-30→2025-09-17  n=  5  PF=0.34  expR=-0.401  {'entry_n': 48, 'sl_atr': 3.0, 'trail_atr': 4.5, 'trail_start_r': 0.5, 'adx_min': 18, 'ema_filter': 200, 'max_hold_bars': 0}
+   fold 10 test 2025-09-17→2026-01-05  n= 13  PF=1.68  expR=+0.302  {'entry_n': 48, 'sl_atr': 3.0, 'trail_atr': 4.5, 'trail_start_r': 0.0, 'adx_min': 0, 'ema_filter': 0, 'max_hold_bars': 0}
+   fold 11 test 2026-01-05→2026-04-25  n=  6  PF=0.00  expR=-0.915  {'entry_n': 48, 'sl_atr': 3.0, 'trail_atr': 3.0, 'trail_start_r': 0.0, 'adx_min': 0, 'ema_filter': 200, 'max_hold_bars': 0}
+   fold 12 test 2026-04-25→2026-08-13  n=  1  PF=0.00  expR=-1.012  {'entry_n': 72, 'sl_atr': 3.0, 'trail_atr': 3.0, 'trail_start_r': 0.5, 'adx_min': 18, 'ema_filter': 200, 'max_hold_bars': 0}
+
+── donchian@8h + BTC-align · OUT-OF-SAMPLE ───────────────────
+  window        2023-01-01 → 2026-08-12
+  trades        152   (0.8/wk)   avg hold 290.8h
+  win rate      38.8%      payoff 3.09
+  profit factor 1.96   95% CI [1.18, 3.00]
+  expectancy    +0.478 R   (+3.48 USDT/trade)
+  net pnl       +529.72 USDT   total +60.2%   CAGR +13.9%
+  max drawdown  15.4%     Calmar 0.91
+  Sharpe 0.92   Sortino 0.76   t-stat 2.35
+  fees 12.89 + funding 0.00  (fees = 1% of gross profit)
+  P(edge>0) 0.99   liquidations 0
+  exits         {'SL': 124, 'EOD': 25, 'TP': 3}
+
+######################################################################
+# B. BREAKDOWN
+######################################################################
+
+  by mkt:
+ mkt  n  win%   PF   expR   pnl
+bull 73  42.5 3.09  0.933 499.7
+chop 51  43.1 1.74  0.350 129.2
+bear 28  21.4 0.28 -0.474 -99.2
+
+  by year:
+ year  n  win%   PF   expR   pnl
+ 2024 51  45.1 3.51  1.022 386.7
+ 2023 46  41.3 2.38  0.601 204.3
+ 2025 48  35.4 0.94 -0.012 -12.8
+ 2026  7   0.0 0.00 -0.929 -48.5
+
+  by dir:
+  dir   n  win%   PF   expR   pnl
+ LONG 104  42.3 2.76  0.811 617.8
+SHORT  48  31.2 0.56 -0.243 -88.1
+
+  by symbol:
+symbol  n  win%   PF   expR   pnl
+   SOL 22  45.5 3.03  0.793 128.6
+   XRP  9  33.3 4.14  1.795 125.6
+  DOGE 15  40.0 2.64  0.851  89.5
+   ETH 17  41.2 2.15  0.514  64.4
+  LINK 17  35.3 1.91  0.509  63.1
+  AVAX 16  43.8 2.02  0.491  58.1
+   SUI 11  36.4 1.12  0.104   4.6
+   BTC 18  33.3 1.04  0.053   2.7
+  NEAR 14  28.6 0.94 -0.037  -3.1
+   APT 13  46.2 0.93 -0.039  -3.8
+
+  parameter stability:
+{
+ "entry_n": {
+  "mode": "48",
+  "mean": 42.333,
+  "cv": 0.35,
+  "n_distinct": 4
+ },
+ "sl_atr": {
+  "mode": 3.0,
+  "mean": 2.917,
+  "cv": 0.1,
+  "n_distinct": 2
+ },
+ "trail_atr": {
+  "mode": 4.5,
+  "mean": 4.0,
+  "cv": 0.18,
+  "n_distinct": 2
+ },
+ "trail_start_r": {
+  "mode": 0.0,
+  "mean": 0.167,
+  "cv": 1.48,
+  "n_distinct": 2
+ },
+ "adx_min": {
+  "mode": "0",
+  "mean": 7.5,
+  "cv": 1.24,
+  "n_distinct": 2
+ },
+ "ema_filter": {
+  "mode": "200",
+  "mean": 116.667,
+  "cv": 0.88,
+  "n_distinct": 2
+ },
+ "max_hold_bars": {
+  "mode": "0",
+  "mean": 0.0,
+  "cv": null,
+  "n_distinct": 1
+ }
+}
+
+  most-selected JOINT parameter set (3/12 folds):
+    {'entry_n': 48, 'sl_atr': 3, 'trail_atr': 4.5, 'trail_start_r': 0, 'adx_min': 0, 'ema_filter': 0, 'max_hold_bars': 0}
+
+######################################################################
+# C. COST SENSITIVITY (full sample, joint params)
+######################################################################
+  maker 2bps     n= 255 PF=1.67 expR=+0.369 net=  +858.0 DD= 16.0% Sharpe=0.89
+  taker 5bps     n= 255 PF=1.65 expR=+0.362 net=  +831.4 DD= 16.3% Sharpe=0.86
+  taker 7.5bps   n= 255 PF=1.64 expR=+0.356 net=  +808.6 DD= 16.5% Sharpe=0.84
+  taker 10bps    n= 255 PF=1.62 expR=+0.350 net=  +786.2 DD= 16.7% Sharpe=0.82
+
+######################################################################
+# D. PARAMETER NEIGHBOURHOOD (full sample)
+######################################################################
+  entry_n         20:PF1.38/n314   30:PF1.46/n293   48:PF1.65/n255   72:PF1.64/n234
+  sl_atr          2.0:PF1.61/n312   3.0:PF1.65/n255
+  trail_atr       2.0:PF1.22/n367   3.0:PF1.47/n304   4.5:PF1.65/n255
+  trail_start_r   0.0:PF1.65/n255   0.5:PF1.69/n267
+  adx_min         0:PF1.65/n255   18:PF1.65/n252
+  ema_filter      0:PF1.65/n255   200:PF1.61/n255
+
+######################################################################
+# E. RANDOM-ENTRY CONTROL (same exits, entries shuffled in time)
+######################################################################
+  real entries      PF=1.65 expR=+0.362 n=255
+  random entries    PF mean=1.16 p5=0.96 p95=1.43 (20 runs)
+  -> the timing signal beats random in 100% of controls

@@ -1,0 +1,112 @@
+loaded: {'BTC': 163316, 'ETH': 163316, 'SOL': 163316, 'LINK': 163316, 'XRP': 163316, 'DOGE': 104999, 'AVAX': 104999, 'NEAR': 104999, 'APT': 89999, 'SUI': 115792}
+regime mix: {'chop': '675 days (40%)', 'bull': '546 days (32%)', 'bear': '480 days (28%)'}
+   chop  2022-01-02 → 2022-04-29  (118d)
+   bear  2022-05-09 → 2022-08-11  (95d)
+   bear  2022-11-09 → 2022-12-13  (35d)
+   bull  2023-01-13 → 2023-03-09  (56d)
+   bull  2023-03-13 → 2023-04-21  (40d)
+   bull  2023-10-21 → 2024-01-22  (94d)
+   bull  2024-02-10 → 2024-04-28  (79d)
+   chop  2024-04-29 → 2024-07-04  (67d)
+   chop  2024-08-20 → 2024-10-04  (46d)
+   bull  2024-10-27 → 2025-01-10  (76d)
+   chop  2025-01-27 → 2025-02-26  (31d)
+   bear  2025-03-08 → 2025-04-21  (45d)
+   bull  2025-05-07 → 2025-06-21  (46d)
+   chop  2025-08-24 → 2025-11-11  (80d)
+   bear  2025-11-12 → 2026-01-05  (55d)
+   bear  2026-02-01 → 2026-04-05  (64d)
+   bear  2026-06-06 → 2026-08-01  (57d)
+
+====================================================================
+SWEEP  walk-forward
+====================================================================
+  walk-forward: 8 folds × 45 candidates (train 240d / test 90d)
+   fold 1 test 2022-08-29→2022-11-27  n= 52  PF=0.33  expR=-0.512  {'lookback': 72, 'tp_atr': 3.2, 'vol_mult': 1.3, 'max_hold_bars': 64, 'trail_atr': 3.0, 'be_at_r': 0.0, 'with_trend_only': True, 'require_reclaim_body': True}
+   fold 2 test 2022-11-27→2023-02-25  n= 99  PF=0.69  expR=-0.352  {'lookback': 72, 'tp_atr': 3.2, 'vol_mult': 1.0, 'max_hold_bars': 48, 'trail_atr': 0.0, 'be_at_r': 0.0, 'with_trend_only': True, 'require_reclaim_body': False}
+   fold 3 test 2023-02-25→2023-05-26  n=214  PF=0.73  expR=-0.209  {'lookback': 72, 'tp_atr': 3.2, 'vol_mult': 1.3, 'max_hold_bars': 48, 'trail_atr': 3.0, 'be_at_r': 1.0, 'with_trend_only': False, 'require_reclaim_body': False}
+   fold 4 test 2023-05-26→2023-08-24  n=213  PF=0.75  expR=-0.242  {'lookback': 48, 'tp_atr': 2.6, 'vol_mult': 1.6, 'max_hold_bars': 64, 'trail_atr': 0.0, 'be_at_r': 0.0, 'with_trend_only': True, 'require_reclaim_body': False}
+   fold 5 test 2023-08-24→2023-11-22  n=436  PF=0.85  expR=-0.151  {'lookback': 72, 'tp_atr': 2.0, 'vol_mult': 1.6, 'max_hold_bars': 96, 'trail_atr': 0.0, 'be_at_r': 1.0, 'with_trend_only': False, 'require_reclaim_body': True}
+   fold 6 test 2023-11-22→2024-02-20  n=299  PF=0.80  expR=-0.180  {'lookback': 72, 'tp_atr': 3.2, 'vol_mult': 1.3, 'max_hold_bars': 64, 'trail_atr': 0.0, 'be_at_r': 0.0, 'with_trend_only': False, 'require_reclaim_body': True}
+   fold 7 test 2024-02-20→2024-05-20  n= 92  PF=1.06  expR=+0.022  {'lookback': 72, 'tp_atr': 3.2, 'vol_mult': 1.6, 'max_hold_bars': 48, 'trail_atr': 2.0, 'be_at_r': 0.0, 'with_trend_only': True, 'require_reclaim_body': True}
+   fold 8 test 2024-05-20→2024-08-18  n= 67  PF=0.52  expR=-0.388  {'lookback': 72, 'tp_atr': 3.2, 'vol_mult': 1.6, 'max_hold_bars': 48, 'trail_atr': 2.0, 'be_at_r': 0.0, 'with_trend_only': True, 'require_reclaim_body': True}
+
+── sweep · OUT-OF-SAMPLE (stitched folds) ────────────────────
+  window        2022-08-29 → 2024-08-17
+  trades        1472   (14.3/wk)   avg hold 3.7h
+  win rate      33.0%      payoff 1.54
+  profit factor 0.76   95% CI [0.66, 0.87]
+  expectancy    -0.205 R   (-0.79 USDT/trade)
+  net pnl       -1159.09 USDT   total -84.0%   CAGR -60.6%
+  max drawdown  84.2%     Calmar -0.72
+  Sharpe -3.56   Sortino -1.95   t-stat -5.15
+  fees 887.77 + funding 0.00  (fees = 24% of gross profit)
+  P(edge>0) 0.00   liquidations 0
+  exits         {'SL': 978, 'TP': 329, 'TIME': 87, 'SL_GAP': 78}
+
+  parameter stability across folds:
+{
+  "lookback": {
+    "mode": "72",
+    "mean": 69.0,
+    "cv": 0.12,
+    "n_distinct": 2
+  },
+  "tp_atr": {
+    "mode": 3.2,
+    "mean": 2.975,
+    "cv": 0.15,
+    "n_distinct": 3
+  },
+  "vol_mult": {
+    "mode": 1.6,
+    "mean": 1.412,
+    "cv": 0.16,
+    "n_distinct": 3
+  },
+  "max_hold_bars": {
+    "mode": "48",
+    "mean": 60.0,
+    "cv": 0.28,
+    "n_distinct": 3
+  },
+  "trail_atr": {
+    "mode": 0.0,
+    "mean": 1.25,
+    "cv": 1.11,
+    "n_distinct": 3
+  },
+  "be_at_r": {
+    "mode": 0.0,
+    "mean": 0.25,
+    "cv": 1.85,
+    "n_distinct": 2
+  },
+  "with_trend_only": {
+    "mode": "True",
+    "mean": 0.625,
+    "cv": 0.83,
+    "n_distinct": 2
+  },
+  "require_reclaim_body": {
+    "mode": "True",
+    "mean": 0.625,
+    "cv": 0.83,
+    "n_distinct": 2
+  }
+}
+
+  ── sweep by market regime (BTC-defined) ──
+regime   n  win%   PF   expR    pnl
+  bear 329  35.3 0.68 -0.239 -312.1
+  bull 646  30.0 0.77 -0.200 -567.9
+  chop 497  35.4 0.80 -0.188 -279.1
+
+====================================================================
+PULLBACK  walk-forward
+====================================================================
+  walk-forward: 8 folds × 45 candidates (train 240d / test 90d)
+   fold 1 test 2022-08-29→2022-11-27  n=131  PF=0.81  expR=-0.077  {'ema_fast': 34, 'ema_slow': 89, 'tp_atr': 4.5, 'sl_atr': 1.8, 'adx_min': 22, 'max_hold_bars': 96, 'trail_atr': 2.5}
+   fold 2 test 2022-11-27→2023-02-25  n=247  PF=0.92  expR=-0.046  {'ema_fast': 13, 'ema_slow': 89, 'tp_atr': 2.5, 'sl_atr': 1.8, 'adx_min': 18, 'max_hold_bars': 96, 'trail_atr': 0.0}
+   fold 3 test 2023-02-25→2023-05-26  n=199  PF=1.07  expR=+0.023  {'ema_fast': 13, 'ema_slow': 89, 'tp_atr': 2.5, 'sl_atr': 1.8, 'adx_min': 18, 'max_hold_bars': 96, 'trail_atr': 0.0}
+   fold 4 test 2023-05-26→2023-08-24  n=250  PF=1.09  expR=+0.058  {'ema_fast': 13, 'ema_slow': 89, 'tp_atr': 2.5, 'sl_atr': 1.8, 'adx_min': 18, 'max_hold_bars': 96, 'trail_atr': 0.0}

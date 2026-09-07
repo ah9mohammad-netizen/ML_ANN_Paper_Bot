@@ -1,0 +1,133 @@
+universe: ['BTC', 'ETH', 'SOL', 'LINK', 'NEAR', 'SUI', 'APT', 'HYPE', 'PEPE', 'WIF', 'DOGE']
+NO DATA on OKX perps: ['FET']
+  BTC   large  5104 bars  2022-01-01 → 2026-08-29
+  ETH   large  5104 bars  2022-01-01 → 2026-08-29
+  SOL   mid    5104 bars  2022-01-01 → 2026-08-29
+  LINK  mid    5104 bars  2022-01-01 → 2026-08-29
+  NEAR  mid    5104 bars  2022-01-01 → 2026-08-29
+  SUI   mid    3637 bars  2023-05-05 → 2026-08-29
+  APT   mid    4231 bars  2022-10-19 → 2026-08-29
+  HYPE  low    1663 bars  2025-02-21 → 2026-08-29
+  PEPE  low    3643 bars  2023-05-03 → 2026-08-29
+  WIF   low    2598 bars  2024-04-15 → 2026-08-29
+  DOGE  low    5104 bars  2022-01-01 → 2026-08-29
+
+########################################################################
+# A. WALK-FORWARD OUT-OF-SAMPLE  (the honest forecast)
+########################################################################
+  walk-forward: 12 folds × 36 candidates (train 365d / test 110d)
+   fold 1 test 2023-01-01→2023-04-21  n= 15  PF=0.28  expR=-0.580  {'entry_n': 72, 'sl_atr': 2.0, 'trail_atr': 3.0, 'trail_start_r': 0.0, 'adx_min': 18, 'ema_filter': 0, 'max_hold_bars': 0}
+   fold 2 test 2023-04-21→2023-08-09  n=  6  PF=1.53  expR=+0.235  {'entry_n': 20, 'sl_atr': 3.0, 'trail_atr': 4.5, 'trail_start_r': 0.0, 'adx_min': 18, 'ema_filter': 200, 'max_hold_bars': 0}
+   fold 3 test 2023-08-09→2023-11-27  n= 13  PF=4.74  expR=+1.787  {'entry_n': 30, 'sl_atr': 3.0, 'trail_atr': 4.5, 'trail_start_r': 0.5, 'adx_min': 18, 'ema_filter': 0, 'max_hold_bars': 0}
+   fold 4 test 2023-11-27→2024-03-16  n= 29  PF=4.04  expR=+1.172  {'entry_n': 30, 'sl_atr': 3.0, 'trail_atr': 4.5, 'trail_start_r': 0.5, 'adx_min': 18, 'ema_filter': 0, 'max_hold_bars': 0}
+   fold 5 test 2024-03-16→2024-07-04  n=  3  PF=0.41  expR=-0.399  {'entry_n': 72, 'sl_atr': 3.0, 'trail_atr': 3.0, 'trail_start_r': 0.0, 'adx_min': 0, 'ema_filter': 200, 'max_hold_bars': 0}
+   fold 6 test 2024-07-04→2024-10-22  n= 10  PF=5.86  expR=+0.471  {'entry_n': 72, 'sl_atr': 3.0, 'trail_atr': 3.0, 'trail_start_r': 0.0, 'adx_min': 0, 'ema_filter': 200, 'max_hold_bars': 0}
+   fold 7 test 2024-10-22→2025-02-09  n= 22  PF=1.56  expR=+0.477  {'entry_n': 20, 'sl_atr': 2.0, 'trail_atr': 4.5, 'trail_start_r': 0.5, 'adx_min': 0, 'ema_filter': 0, 'max_hold_bars': 0}
+   fold 8 test 2025-02-09→2025-05-30  n=  8  PF=4.10  expR=+1.245  {'entry_n': 48, 'sl_atr': 2.0, 'trail_atr': 4.5, 'trail_start_r': 0.0, 'adx_min': 18, 'ema_filter': 0, 'max_hold_bars': 0}
+   fold 9 test 2025-05-30→2025-09-17  n=  6  PF=0.38  expR=-0.424  {'entry_n': 48, 'sl_atr': 2.0, 'trail_atr': 4.5, 'trail_start_r': 0.5, 'adx_min': 0, 'ema_filter': 200, 'max_hold_bars': 0}
+   fold 10 test 2025-09-17→2026-01-05  n=  0  PF=0.00  expR=+0.000  {'entry_n': 72, 'sl_atr': 2.0, 'trail_atr': 4.5, 'trail_start_r': 0.0, 'adx_min': 18, 'ema_filter': 0, 'max_hold_bars': 0}
+   fold 11 test 2026-01-05→2026-04-25  n=  1  PF=0.00  expR=-0.648  {'entry_n': 72, 'sl_atr': 2.0, 'trail_atr': 4.5, 'trail_start_r': 0.0, 'adx_min': 18, 'ema_filter': 0, 'max_hold_bars': 0}
+   fold 12 test 2026-04-25→2026-08-13  n=  0  PF=0.00  expR=+0.000  {'entry_n': 72, 'sl_atr': 3.0, 'trail_atr': 3.0, 'trail_start_r': 0.0, 'adx_min': 0, 'ema_filter': 200, 'max_hold_bars': 0}
+
+── YOUR 12 PAIRS · walk-forward OOS ──────────────────────────
+  window        2023-01-01 → 2026-08-12
+  trades        113   (0.6/wk)   avg hold 250.3h
+  win rate      39.8%      payoff 3.28
+  profit factor 2.17   95% CI [1.21, 3.56]
+  expectancy    +0.626 R   (+4.54 USDT/trade)
+  net pnl       +513.41 USDT   total +58.6%   CAGR +13.6%
+  max drawdown  14.4%     Calmar 0.95
+  Sharpe 0.96   Sortino 0.65   t-stat 2.34
+  fees 10.99 + funding 0.00  (fees = 1% of gross profit)
+  P(edge>0) 1.00   liquidations 0
+  exits         {'SL': 90, 'EOD': 19, 'TP': 3, 'SL_GAP': 1}
+
+  by tier:
+ tier  n  win%   PF  payoff  expR   pnl
+  low 21  47.6 4.88    5.37 1.765 270.6
+  mid 60  41.7 1.59    2.23 0.309 137.1
+large 32  31.2 1.77    3.90 0.472 105.8
+
+  by mkt:
+ mkt  n  win%   PF  payoff  expR   pnl
+bull 88  35.2 1.95    3.58 0.544 344.1
+chop 25  56.0 3.26    2.56 0.912 169.3
+
+  by year:
+ year  n  win%   PF  payoff   expR   pnl
+ 2024 47  53.2 3.99    3.51  1.177 406.4
+ 2023 43  30.2 1.59    3.67  0.353 111.0
+ 2025 22  31.8 1.01    2.16  0.039   0.8
+ 2026  1   0.0 0.00     NaN -0.648  -4.9
+
+  by symbol:
+symbol  n  win%   PF  payoff   expR   pnl
+   SOL 14  57.1 4.09    3.07  1.342 139.1
+  DOGE 10  50.0 5.39    5.39  1.850 135.9
+  PEPE  9  44.4 4.51    5.63  1.948 127.0
+   ETH 16  37.5 2.44    4.07  0.713  81.2
+   BTC 16  25.0 1.30    3.91  0.232  24.6
+   WIF  2  50.0 3.97    3.97  0.516   7.7
+   SUI 11  36.4 1.18    2.07  0.096   5.9
+   APT  8  62.5 1.00    0.60 -0.003  -0.0
+  LINK 16  31.2 0.96    2.12 -0.013  -2.9
+  NEAR 11  27.3 0.90    2.39 -0.099  -5.0
+
+########################################################################
+# B. LOCKED PARAMETERS, FULL SAMPLE  (in-sample reference)
+########################################################################
+  {'entry_n': 48, 'sl_atr': 3.0, 'trail_atr': 4.5, 'trail_start_r': 0.5, 'adx_min': 18, 'ema_filter': 200, 'long_only': True, 'max_hold_bars': 0}
+
+── YOUR 12 PAIRS · full sample, locked params ────────────────
+  window        2022-01-01 → 2026-08-29
+  trades        154   (0.6/wk)   avg hold 302.8h
+  win rate      46.8%      payoff 2.50
+  profit factor 2.20   95% CI [1.38, 3.27]
+  expectancy    +0.583 R   (+5.40 USDT/trade)
+  net pnl       +830.83 USDT   total +82.3%   CAGR +13.7%
+  max drawdown  11.2%     Calmar 1.23
+  Sharpe 1.00   Sortino 0.82   t-stat 2.89
+  fees 17.52 + funding 0.00  (fees = 1% of gross profit)
+  P(edge>0) 1.00   liquidations 0
+  exits         {'SL': 148, 'TP': 3, 'EOD': 3}
+  blocked       {'max_open': 188, 'symbol_locked': 432}
+
+  by tier:
+ tier  n  win%   PF  payoff  expR   pnl
+  low 27  51.9 4.03    3.75 1.449 376.1
+  mid 85  43.5 1.65    2.14 0.337 252.9
+large 42  50.0 2.12    2.12 0.522 201.9
+
+  by mkt:
+ mkt   n  win%   PF  payoff  expR   pnl
+bull 102  45.1 2.11    2.57 0.592 527.9
+chop  52  50.0 2.38    2.38 0.565 303.0
+
+  by year:
+ year  n  win%   PF  payoff   expR   pnl
+ 2024 58  39.7 2.08    3.16  0.671 338.2
+ 2023 48  47.9 2.18    2.37  0.575 204.5
+ 2026 13  76.9 6.54    1.96  0.971 160.9
+ 2025 28  50.0 2.00    2.00  0.463 145.0
+ 2022  7  28.6 0.46    1.14 -0.338 -17.7
+
+  by symbol:
+symbol  n  win%    PF  payoff   expR   pnl
+  PEPE  7  71.4 16.88    6.75  3.017 203.1
+  DOGE 12  50.0  3.42    3.42  1.176 127.0
+   ETH 17  52.9  2.86    2.54  0.795 123.8
+   SOL 26  38.5  1.83    2.93  0.524 109.4
+   BTC 25  48.0  1.69    1.83  0.337  78.1
+   APT  9  44.4  2.80    3.50  0.921  68.7
+  HYPE  6  50.0  2.73    2.73  0.978  66.4
+   SUI 13  53.8  2.18    1.87  0.379  54.6
+  NEAR 15  46.7  1.21    1.39  0.076  13.5
+  LINK 22  40.9  1.06    1.53  0.031   6.7
+   WIF  2   0.0  0.00     NaN -0.982 -20.4
+
+########################################################################
+# C. EXPECTED TRADE FREQUENCY
+########################################################################
+  full sample: 154 trades over 1701 days = 0.63/week = 2.8/month
+  walk-forward OOS: 0.60/week
+  time to 100 closed trades at OOS rate: 3.2 years

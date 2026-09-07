@@ -1,0 +1,14 @@
+{
+  "strategy": "donchian_trend_v2",
+  "timeframe": "8h",
+  "market_filter": "align",
+  "params": {
+    "entry_n": 48,
+    "sl_atr": 3,
+    "trail_atr": 4.5,
+    "trail_start_r": 0,
+    "adx_min": 0,
+    "ema_filter": 0,
+    "max_hold_bars": 0
+  }
+}

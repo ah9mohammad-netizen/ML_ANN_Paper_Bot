@@ -1,0 +1,109 @@
+  squeeze   2h  filter=none   n=1178 PF=0.91 CI[0.76,1.08] expR=-0.051 Sh=-0.44 DD= 55.2% t=-1.07 win=36.2%
+    t>2.5:False  PF_CI_lo>1.10:False  positive in >=2 regimes:False  ->  not proven
+  squeeze   2h  filter=align  n= 422 PF=0.93 CI[0.73,1.19] expR=-0.035 Sh=-0.22 DD= 36.8% t=-0.55 win=44.1%
+    t>2.5:False  PF_CI_lo>1.10:False  positive in >=2 regimes:True  ->  not proven
+  donchian  2h  filter=none   n=1594 PF=1.04 CI[0.90,1.19] expR=+0.040 Sh= 0.19 DD= 48.8% t= 0.96 win=40.7%
+    t>2.5:False  PF_CI_lo>1.10:False  positive in >=2 regimes:False  ->  not proven
+  donchian  2h  filter=align  n= 812 PF=1.07 CI[0.88,1.30] expR=+0.065 Sh= 0.28 DD= 32.8% t= 0.95 win=33.9%
+    t>2.5:False  PF_CI_lo>1.10:False  positive in >=2 regimes:True  ->  not proven
+  squeeze   4h  filter=none   n= 549 PF=1.01 CI[0.79,1.28] expR=+0.014 Sh= 0.02 DD= 26.5% t= 0.21 win=38.3%
+    t>2.5:False  PF_CI_lo>1.10:False  positive in >=2 regimes:True  ->  not proven
+  squeeze   4h  filter=align  n= 201 PF=1.00 CI[0.69,1.39] expR=-0.010 Sh=-0.04 DD= 27.6% t=-0.11 win=41.8%
+    t>2.5:False  PF_CI_lo>1.10:False  positive in >=2 regimes:False  ->  not proven
+  donchian  4h  filter=none   n= 685 PF=0.99 CI[0.77,1.23] expR=+0.003 Sh=-0.05 DD= 42.3% t= 0.05 win=35.8%
+    t>2.5:False  PF_CI_lo>1.10:False  positive in >=2 regimes:False  ->  not proven
+  donchian  4h  filter=align  n= 452 PF=1.07 CI[0.84,1.35] expR=+0.044 Sh= 0.16 DD= 28.0% t= 0.60 win=40.3%
+    t>2.5:False  PF_CI_lo>1.10:False  positive in >=2 regimes:True  ->  not proven
+  squeeze   8h  filter=none   n= 160 PF=0.97 CI[0.64,1.39] expR=-0.011 Sh=-0.06 DD= 14.7% t=-0.12 win=45.0%
+    t>2.5:False  PF_CI_lo>1.10:False  positive in >=2 regimes:False  ->  not proven
+  squeeze   8h  filter=align  n=  89 PF=0.68 CI[0.38,1.16] expR=-0.173 Sh=-0.43 DD= 18.8% t=-1.51 win=33.7%
+    t>2.5:False  PF_CI_lo>1.10:False  positive in >=2 regimes:False  ->  not proven
+  donchian  8h  filter=none   n= 271 PF=1.23 CI[0.87,1.73] expR=+0.118 Sh= 0.42 DD= 18.6% t= 1.18 win=44.3%
+    t>2.5:False  PF_CI_lo>1.10:False  positive in >=2 regimes:True  ->  not proven
+  donchian  8h  filter=align  n= 149 PF=1.90 CI[1.13,2.95] expR=+0.470 Sh= 0.88 DD= 16.3% t= 2.26 win=38.9%
+    t>2.5:False  PF_CI_lo>1.10:True  positive in >=2 regimes:True  ->  not proven
+
+######################################################################
+# BEST OVERALL: donchian @ 8h, market filter = align
+######################################################################
+── donchian@8h/align · OUT-OF-SAMPLE ─────────────────────────
+  window        2023-01-01 → 2026-08-12
+  trades        149   (0.8/wk)   avg hold 297.0h
+  win rate      38.9%      payoff 2.98
+  profit factor 1.90   95% CI [1.13, 2.95]
+  expectancy    +0.470 R   (+3.42 USDT/trade)
+  net pnl       +509.99 USDT   total +57.0%   CAGR +13.3%
+  max drawdown  16.3%     Calmar 0.81
+  Sharpe 0.88   Sortino 0.72   t-stat 2.26
+  fees 12.61 + funding 0.00  (fees = 1% of gross profit)
+  P(edge>0) 0.99   liquidations 3
+  exits         {'SL': 120, 'EOD': 23, 'TP': 3, 'LIQ': 3}
+
+  by regime:
+regime  n  win%   PF   expR   pnl
+  bear 28  21.4 0.28 -0.474 -98.9
+  bull 73  42.5 3.06  0.930 497.5
+  chop 48  43.8 1.59  0.323 111.4
+
+  folds:
+ fold      train       test  score_train  entry_n  sl_atr  trail_atr  trail_start_r  adx_min  ema_filter  max_hold_bars  oos_trades  oos_pf  oos_expR  oos_wr
+    1 2022-01-01 2023-01-01         0.98       48     3.0        3.0            0.0        0         200              0          11    1.03     0.021    45.5
+    2 2022-04-21 2023-04-21         1.13       48     3.0        4.5            0.0        0           0              0          14    0.76    -0.110    28.6
+    3 2022-08-09 2023-08-09         0.25       30     3.0        4.5            0.0       18         200              0          12    8.11     2.390    50.0
+    4 2022-11-27 2023-11-27         2.12       30     3.0        4.5            0.0       18           0              0          30    2.34     0.641    36.7
+    5 2023-03-17 2024-03-16         2.69       20     3.0        3.0            0.0       18         200              0           9    0.02    -0.769    22.2
+    6 2023-07-05 2024-07-04         1.84       48     3.0        4.5            0.5        0         200              0           9   14.93     0.639    77.8
+    7 2023-10-23 2024-10-22         0.98       48     3.0        4.5            0.0        0           0              0          13    4.88     2.313    53.8
+    8 2024-02-10 2025-02-09         1.38       20     2.0        4.5            0.0       18           0              0          26    0.94    -0.032    26.9
+    9 2024-05-30 2025-05-30         1.63       48     3.0        4.5            0.5       18         200              0           5    0.34    -0.401    40.0
+   10 2024-09-17 2025-09-17         2.05       48     3.0        4.5            0.0        0           0              0          13    1.68     0.302    53.8
+   11 2025-01-05 2026-01-05         2.29       48     3.0        3.0            0.0        0         200              0           6    0.00    -0.915     0.0
+   12 2025-04-25 2026-04-25         2.67       72     3.0        3.0            0.5       18         200              0           1    0.00    -1.012     0.0
+
+  stability:
+{
+ "entry_n": {
+  "mode": "48",
+  "mean": 42.333,
+  "cv": 0.35,
+  "n_distinct": 4
+ },
+ "sl_atr": {
+  "mode": 3.0,
+  "mean": 2.917,
+  "cv": 0.1,
+  "n_distinct": 2
+ },
+ "trail_atr": {
+  "mode": 4.5,
+  "mean": 4.0,
+  "cv": 0.18,
+  "n_distinct": 2
+ },
+ "trail_start_r": {
+  "mode": 0.0,
+  "mean": 0.125,
+  "cv": 1.81,
+  "n_distinct": 2
+ },
+ "adx_min": {
+  "mode": "0",
+  "mean": 9.0,
+  "cv": 1.04,
+  "n_distinct": 2
+ },
+ "ema_filter": {
+  "mode": "200",
+  "mean": 116.667,
+  "cv": 0.88,
+  "n_distinct": 2
+ },
+ "max_hold_bars": {
+  "mode": "0",
+  "mean": 0.0,
+  "cv": null,
+  "n_distinct": 1
+ }
+}
+
+     t>2.5:False  PF_CI_lo>1.10:True  positive in >=2 regimes:True  ->  not proven

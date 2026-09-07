@@ -1,0 +1,46 @@
+BTC 23167 2024-01-01 2026-08-23
+ETH 23167 2024-01-01 2026-08-23
+SOL 23167 2024-01-01 2026-08-23
+signals {'BTC': 214, 'ETH': 242, 'SOL': 192}
+
+── SMOKE 1h A_repo ───────────────────────────────────────────
+  window        2024-01-01 → 2026-08-23
+  trades        502   (3.6/wk)   avg hold 10.2h
+  win rate      40.8%      payoff 1.26
+  profit factor 0.87   95% CI [0.72, 1.05]
+  expectancy    -0.075 R   (-0.58 USDT/trade)
+  net pnl       -289.46 USDT   total -42.5%   CAGR -18.9%
+  max drawdown  45.8%     Calmar -0.41
+  Sharpe -0.95   Sortino -0.54   t-stat -1.54
+  fees 267.19 + funding 0.00  (fees = 14% of gross profit)
+  P(edge>0) 0.08   liquidations 0
+  exits         {'SL': 262, 'TP': 176, 'TIME': 63, 'EOD': 1}
+  blocked       {'symbol_locked': 142, 'no_room': 4}
+
+── SMOKE 1h B_wicks ──────────────────────────────────────────
+  window        2024-01-01 → 2026-08-23
+  trades        557   (4.0/wk)   avg hold 7.0h
+  win rate      38.1%      payoff 1.18
+  profit factor 0.72   95% CI [0.60, 0.87]
+  expectancy    -0.168 R   (-1.02 USDT/trade)
+  net pnl       -567.82 USDT   total -67.4%   CAGR -34.6%
+  max drawdown  67.9%     Calmar -0.51
+  Sharpe -2.07   Sortino -0.98   t-stat -3.41
+  fees 210.54 + funding 0.00  (fees = 14% of gross profit)
+  P(edge>0) 0.00   liquidations 1
+  exits         {'SL': 301, 'TP': 192, 'SL_GAP': 30, 'TIME': 23, 'TP_GAP': 8, 'LIQ': 1, 'SL_AMBIG': 1, 'EOD': 1}
+  blocked       {'symbol_locked': 89, 'no_room': 2}
+
+── SMOKE 1h C_honest ─────────────────────────────────────────
+  window        2024-01-01 → 2026-08-23
+  trades        557   (4.0/wk)   avg hold 7.0h
+  win rate      38.1%      payoff 1.11
+  profit factor 0.68   95% CI [0.56, 0.82]
+  expectancy    -0.203 R   (-1.12 USDT/trade)
+  net pnl       -621.89 USDT   total -74.2%   CAGR -40.1%
+  max drawdown  74.6%     Calmar -0.54
+  Sharpe -2.48   Sortino -1.15   t-stat -4.05
+  fees 239.18 + funding 0.00  (fees = 18% of gross profit)
+  P(edge>0) 0.00   liquidations 1
+  exits         {'SL': 301, 'TP': 192, 'SL_GAP': 30, 'TIME': 23, 'TP_GAP': 8, 'LIQ': 1, 'SL_AMBIG': 1, 'EOD': 1}
+  blocked       {'symbol_locked': 89, 'no_room': 2}

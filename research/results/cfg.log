@@ -1,0 +1,12 @@
+A both sides + filter              n= 267 PF=1.69 CI[1.19,2.32] expR=+0.340 Sh=0.88 DD=13.6% t=2.88 win=43.4%
+                                   regimes: bear:PF0.30/n60  bull:PF2.58/n99  chop:PF1.99/n108
+                                   by year: {2022: 32.0, 2023: 273.0, 2024: 229.0, 2025: 100.0, 2026: 193.0}
+B LONG-ONLY + filter               n= 153 PF=2.28 CI[1.48,3.44] expR=+0.570 Sh=1.01 DD=12.1% t=3.07 win=48.4%
+                                   regimes: bull:PF2.58/n99  chop:PF1.78/n54
+                                   by year: {2022: -30.0, 2023: 315.0, 2024: 262.0, 2025: 83.0, 2026: 184.0}
+C LONG-ONLY + filter + ema200      n= 150 PF=2.39 CI[1.52,3.58] expR=+0.615 Sh=1.08 DD=12.2% t=3.24 win=50.0%
+                                   regimes: bull:PF2.46/n96  chop:PF2.25/n54
+                                   by year: {2022: -23.0, 2023: 308.0, 2024: 311.0, 2025: 94.0, 2026: 191.0}
+D LONG-ONLY no filter              n= 221 PF=2.06 CI[1.39,2.91] expR=+0.568 Sh=1.19 DD=17.6% t=3.22 win=43.9%
+                                   regimes: bear:PF0.54/n24  bull:PF1.62/n95  chop:PF3.07/n102
+                                   by year: {2022: 29.0, 2023: 474.0, 2024: 459.0, 2025: 71.0, 2026: 257.0}

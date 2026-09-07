@@ -1,13 +1,14 @@
-# Ignore python cache
+# Python cache
 __pycache__/
 *.py[cod]
 *$py.class
 .venv/
 
-# Ignore environment variables and local databases
+# Secrets and local databases
 .env
 *.db
+*.db-journal
+*.db-wal
 
-# DO NOT ignore the model artifacts
-!artifacts/ann_mtf_v3_model.joblib
-!artifacts/ann_mtf_v3_meta.json
+# OKX candle cache written by research/okx_data.py
+research/data/
