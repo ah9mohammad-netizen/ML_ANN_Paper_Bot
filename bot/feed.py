@@ -260,6 +260,7 @@ class Feed:
 
         self.cache = {}          # (symbol, tf) -> df
         self.fetched_bar = {}    # (symbol, tf) -> open-ms of newest bar we hold
+        self.refreshed_bar = {}  # tf -> open-ms of the last completed sweep
         self.last_ok = {}
         self.venue_used = {}
         self.fail = {}           # (symbol, tf) -> consecutive failures
@@ -327,6 +328,8 @@ class Feed:
             out = self._resample(b, rule)
             with self.lock:
                 self.cache[key] = out
+                if len(out):
+                    self.fetched_bar[key] = int(out.index[-1].timestamp() * 1000)
             return out
 
         with self.lock:
@@ -378,22 +381,26 @@ class Feed:
                     out[s] = self.cache.get((s, tf), pd.DataFrame())
         return out
 
-    def due(self, tf, grace_s=20):
-        """Has a new bar of `tf` closed that we have not fetched yet?"""
-        want = last_closed_open_ms(tf)
-        if int(time.time() * 1000) < want + TF_MS[tf] + grace_s * 1000:
-            pass                                  # grace applies after close
+    def due(self, tf):
+        """Has a new bar closed since the last completed refresh sweep?
+
+        Deliberately a single per-TIMEFRAME watermark, not a scan over
+        per-symbol state. The earlier per-symbol version returned True forever
+        whenever any one symbol's fetch was failing, which made the runner
+        re-scan the whole universe every 30 seconds for nothing."""
+        base = SYNTHETIC.get(tf, (tf,))[0]
+        want = last_closed_open_ms(base)
         with self.lock:
-            for (s, t), got in self.fetched_bar.items():
-                if t == tf and got < want:
-                    return True
-            base = SYNTHETIC.get(tf, (None,))[0]
-            if base:
-                wb = last_closed_open_ms(base)
-                for (s, t), got in self.fetched_bar.items():
-                    if t == base and got < wb:
-                        return True
-        return False
+            got = self.refreshed_bar.get(tf)
+        return got is None or got < want
+
+    def mark_refreshed(self, tf):
+        """Called by the runner once a refresh sweep has completed, whatever
+        individual symbols did. Symbol-level failures are retried on their own
+        backoff — they must not pin the whole loop in a spin."""
+        base = SYNTHETIC.get(tf, (tf,))[0]
+        with self.lock:
+            self.refreshed_bar[tf] = last_closed_open_ms(base)
 
     def seconds_to_next_close(self, tf):
         base = SYNTHETIC.get(tf, (tf,))[0]
@@ -406,11 +413,33 @@ class Feed:
         return None if d is None or not len(d) else d.index[-1]
 
     def staleness_minutes(self, symbol, tf):
-        ts = self.last_closed_ts(symbol, tf)
+        """Minutes behind the newest bar that SHOULD exist.
+
+        For a synthetic timeframe this is measured on the BASE series. An 8h
+        bucket is only emitted once every 4h bar inside it has closed, so
+        judging freshness on the resampled series makes the feed look 8 hours
+        stale for the 4 hours before every close — which is exactly what tripped
+        the stale-data kill switch in production."""
+        base = SYNTHETIC.get(tf, (tf,))[0]
+        ts = self.last_closed_ts(symbol, base)
         if ts is None:
             return 1e9
-        expected = last_closed_open_ms(tf)
+        expected = last_closed_open_ms(base)
         return max(0.0, (expected - int(ts.timestamp() * 1000)) / 60000)
+
+    def stale_symbols(self, symbols, tf, max_minutes):
+        return [s for s in symbols
+                if self.staleness_minutes(s, tf) > max_minutes]
+
+    def recover(self, symbols, tf):
+        """Force a refetch for symbols whose circuit breaker is open. Clears the
+        breaker first so a transient 429 cannot wedge a symbol permanently."""
+        base = SYNTHETIC.get(tf, (tf,))[0]
+        with self.lock:
+            for s in symbols:
+                self.fail.pop((s, base), None)
+                self.blocked_until.pop((s, base), None)
+        return self.bars_many(symbols, tf, need=400, force=True)
 
     def price(self, symbol, max_age_s=45):
         """Latest 1m close, cached briefly. Used for marking and paper fills."""

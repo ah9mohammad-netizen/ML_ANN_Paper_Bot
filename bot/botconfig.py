@@ -49,7 +49,13 @@ class Config:
     max_daily_loss: float = _f("MAX_DAILY_LOSS", "0.05")
     max_drawdown_halt: float = _f("MAX_DRAWDOWN_HALT", "0.25")
     max_consecutive_losses: int = _i("MAX_CONSECUTIVE_LOSSES", "8")
-    stale_data_halt_min: int = _i("STALE_DATA_HALT_MIN", "20")
+    # 0 = auto: 1.5 base bars (e.g. 6h on an 8h timeframe). A flat 20 minutes
+    # is meaningless for slow bars and froze the live bot for 11 hours.
+    stale_data_halt_min: float = _f("STALE_DATA_HALT_MIN", "0")
+    # halt everything only when this fraction of feeds is dark; below it the
+    # stale symbols are simply skipped for that scan
+    stale_halt_fraction: float = _f("STALE_HALT_FRACTION", "0.5")
+    recover_seconds: int = _i("RECOVER_SECONDS", "600")
 
     # ---- costs
     taker_fee: float = _f("TAKER_FEE", "0.0005")

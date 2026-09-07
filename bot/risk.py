@@ -51,11 +51,23 @@ class RiskManager:
             r = f"{cl} consecutive losses — halted, manual /resume required"
             self.store.set("halt_reason", r); return r
 
-        if feed is not None:
-            stale = [s for s in c.pairs
-                     if feed.staleness_minutes(s, c.timeframe) > c.stale_data_halt_min]
-            if stale:
-                return f"stale data for {','.join(stale[:4])} — not trading blind"
+        # Stale data is handled by the runner, not here. Halting the whole bot
+        # because a few feeds lag is disproportionate — and it used to be worse
+        # than that: the halt ran BEFORE the refresh, so it blocked the very
+        # fetch that would have cleared it. Four lagging symbols out of 33 froze
+        # the bot for eleven hours. Symbols that are actually stale are excluded
+        # from the tradable set for that cycle; a halt only follows if most of
+        # the universe is dark.
+        return ""
+
+    def stale_gate(self, stale, total):
+        """Trade around a few lagging feeds; stop only if the tape goes dark."""
+        if not total:
+            return "no symbols"
+        frac = len(stale) / total
+        if frac >= self.cfg.stale_halt_fraction:
+            return (f"{len(stale)}/{total} feeds stale "
+                    f"({', '.join(sorted(stale)[:6])}) — tape is dark")
         return ""
 
     def can_open(self, sig, open_positions, equity):

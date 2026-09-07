@@ -80,7 +80,8 @@ bot/
   feed.py       closed-bar-only feed — bar-aligned cache, token bucket,
                 concurrent refresh, per-symbol circuit breaker, telemetry
   broker.py     paper execution — exits evaluated on closed 1-MINUTE bars
-  risk.py       pre-trade gates and kill switches
+  risk.py       pre-trade gates and kill switches; lagging feeds are
+                skipped per-scan, not treated as a reason to stop
   store.py      SQLite with schema versioning and equity snapshots
   metrics.py    expectancy in R, bootstrap CIs, and a verdict that says
                 "insufficient data" until 100 closed trades
@@ -133,7 +134,9 @@ MAX_CORRELATED=3
 MAX_DAILY_LOSS=0.06
 MAX_DRAWDOWN_HALT=0.25
 MAX_CONSECUTIVE_LOSSES=8
-STALE_DATA_HALT_MIN=90
+STALE_DATA_HALT_MIN=0          # 0 = auto: 1.5 base bars (6h on 8h)
+STALE_HALT_FRACTION=0.5        # halt only if half the tape is dark
+RECOVER_SECONDS=600
 
 # --- costs
 TAKER_FEE=0.0005
@@ -168,7 +171,8 @@ and refuses to call anything an edge below 100 closed trades. `/api` shows the
 request budget, latency percentiles and circuit-breaker state; `/diag` reports
 data freshness and the market gate.
 
-Operational changes since the first v2 cut are in `bot/CHANGELOG_v2.1.md`.
+Operational changes since the first v2 cut are in `bot/CHANGELOG_v2.1.md`
+and `bot/CHANGELOG_v2.2.md`.
 
 ---
 

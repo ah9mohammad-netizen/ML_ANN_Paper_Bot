@@ -88,6 +88,7 @@ class Runner:
         self._mkt_daily, self._mkt_ts = None, 0.0
         self.last_scan_ts = 0.0
         self.last_snapshot = 0.0
+        self._last_recover = 0.0
         self.scans = 0
         self.running = True
         self.warmup_universe()
@@ -184,14 +185,66 @@ class Runner:
                     "extra": {"strategy": name}}
         return None
 
-    def scan(self, equity):
+    def stale_budget(self):
+        """How far behind a feed may fall before we stop trusting it.
+
+        Scales with the timeframe: a flat 20 minutes is meaningless for 8h
+        bars, and was what tripped the production halt."""
+        c = self.cfg
+        if c.stale_data_halt_min > 0:
+            return c.stale_data_halt_min
+        from feed import SYNTHETIC, TF_MS
+        base = SYNTHETIC.get(c.timeframe, (c.timeframe,))[0]
+        return max(30.0, 1.5 * TF_MS[base] / 60000)
+
+    def recover_stale(self):
+        """Between bars, quietly retry any feed that has fallen behind. Bounded
+        by its own interval so a persistently dead symbol cannot spin the loop."""
+        c = self.cfg
+        if time.time() - getattr(self, "_last_recover", 0) < c.recover_seconds:
+            return
+        self._last_recover = time.time()
+        stale = self.feed.stale_symbols(c.pairs, c.timeframe, self.stale_budget())
+        if not stale:
+            return
+        self.log.warning("stale feeds: %s — forcing refetch", ", ".join(stale[:8]))
+        self.feed.recover(stale, c.timeframe)
+        still = self.feed.stale_symbols(stale, c.timeframe, self.stale_budget())
+        if still:
+            self.log.warning("still stale after refetch: %s", ", ".join(still[:8]))
+        else:
+            self.log.info("all feeds recovered")
+
+    def refresh_and_scan(self, equity):
+        """Refresh the universe, then scan whatever is fresh enough to trust."""
+        c = self.cfg
+        self.feed.bars_many(c.pairs, c.timeframe, need=400)
+        stale = self.feed.stale_symbols(c.pairs, c.timeframe, self.stale_budget())
+        if stale:
+            self.feed.recover(stale, c.timeframe)
+            stale = self.feed.stale_symbols(c.pairs, c.timeframe, self.stale_budget())
+        self.feed.mark_refreshed(c.timeframe)
+
+        gate = self.risk.stale_gate(stale, len(c.pairs))
+        if gate:
+            self.store.set("halt_reason", f"{gate} — will retry automatically")
+            self.log.error("scan skipped: %s", gate)
+            return
+        self.store.set("halt_reason", "")
+        tradable = [s for s in c.pairs if s not in stale]
+        if stale:
+            self.log.warning("excluding %d stale feed(s) this scan: %s",
+                             len(stale), ", ".join(sorted(stale)[:8]))
+        self.scan(equity, tradable)
+
+    def scan(self, equity, symbols=None):
         """One pass over the universe. Called only when a bar has closed."""
         c = self.cfg
+        symbols = c.pairs if symbols is None else symbols
         t0 = time.time()
         before = self.feed.stats.total
-        self.feed.bars_many(c.pairs, c.timeframe, need=400)
         opened = 0
-        for sym in c.pairs:
+        for sym in symbols:
             sig = self.signal_for(sym)
             if not sig:
                 continue
@@ -232,7 +285,7 @@ class Runner:
         self.scans += 1
         self.last_scan_ts = time.time()
         self.log.info("scan #%d: %d symbols, %d API calls, %.1fs, %d opened",
-                      self.scans, len(c.pairs),
+                      self.scans, len(symbols),
                       self.feed.stats.total - before, time.time() - t0, opened)
 
     # ---- funding ------------------------------------------------------
@@ -320,8 +373,7 @@ class Runner:
         try:
             eq, _ = self.broker.mark_equity()
             self.risk.roll_day(eq)
-            if not self.risk.halt_check(eq, self.feed):
-                self.scan(eq)
+            self.refresh_and_scan(eq)
         except Exception:
             self.log.exception("initial scan failed")
 
@@ -349,12 +401,17 @@ class Runner:
 
                 eq, unreal = self.broker.mark_equity()
                 self.risk.roll_day(eq)
-                halt = self.risk.halt_check(eq, self.feed)
 
-                # the expensive work happens ONLY on a bar close
-                if not halt and self.feed.due(c.timeframe):
-                    self.scan(eq)
-                elif halt and int(time.time()) % 3600 < c.poll_seconds:
+                # DATA FIRST, ALWAYS. A halt must never be able to block the
+                # refresh that would clear it — that deadlock froze the live
+                # bot for eleven hours.
+                if self.feed.due(c.timeframe):
+                    self.refresh_and_scan(eq)
+                else:
+                    self.recover_stale()
+
+                halt = self.risk.halt_check(eq, self.feed)
+                if halt and int(time.time()) % 3600 < c.poll_seconds:
                     self.log.warning("HALTED: %s", halt)
 
                 if time.time() - self.last_snapshot >= c.snapshot_seconds:
