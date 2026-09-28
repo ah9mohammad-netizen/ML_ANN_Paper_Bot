@@ -6,17 +6,28 @@ permissions:
   contents: read
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     strategy:
+      fail-fast: false
       matrix:
         python-version: ['3.11', '3.13']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - run: python -m pip install -r requirements-dev.txt
-      - run: python -m pytest -q
+      - name: Check required upload files
+        run: |
+          python - <<'PYCODE'
+          from pathlib import Path
+          required = ["bot/execution.py", "tests/conftest.py", "tests/test_broker.py",
+                      "tests/test_research.py", "tests/test_risk_reporting.py"]
+          missing = [p for p in required if not Path(p).is_file()]
+          if missing:
+              raise SystemExit("Incomplete browser upload. Missing: " + ", ".join(missing))
+          PYCODE
+      - run: python -m pytest -q tests
       - run: python -m compileall -q bot research
