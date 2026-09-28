@@ -35,7 +35,12 @@ class RiskManager:
         if cur and not cur.startswith("stale"):
             return cur
 
-        peak = float(self.store.get("peak_equity", equity))
+        if equity <= 0:
+            r = "nonpositive equity — halted"
+            self.store.set("halt_reason", r)
+            return r
+        peak = max(float(self.store.get("peak_equity", equity)), equity)
+        self.store.set("peak_equity", peak)
         if peak > 0 and (peak - equity) / peak >= c.max_drawdown_halt:
             r = (f"drawdown {100*(peak-equity)/peak:.1f}% >= "
                  f"{100*c.max_drawdown_halt:.0f}% — halted, manual /resume required")
@@ -73,6 +78,14 @@ class RiskManager:
     def can_open(self, sig, open_positions, equity):
         c = self.cfg
         sym, side = sig["symbol"], int(sig["side"])
+        # Defence in depth: no caller may bypass risk by invoking scan directly.
+        halt = self.halt_check(equity)
+        if halt:
+            return self._rej("risk_halt")
+        if self.store.get("execution_halt_reason", ""):
+            return self._rej("execution_history_halt")
+        if self.store.get("data_halt_reason", ""):
+            return self._rej("stale_data")
         if self.store.get("paused", False):
             return self._rej("paused")
         if c.same_symbol_lock and any(p["symbol"] == sym for p in open_positions):

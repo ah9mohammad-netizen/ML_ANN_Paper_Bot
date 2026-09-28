@@ -2,6 +2,8 @@
 import html
 import os
 import time
+import tempfile
+from pathlib import Path
 
 import requests
 
@@ -10,6 +12,7 @@ import metrics
 
 HELP = """*Commands*
 /stats — full performance report with confidence intervals
+/stats new — post-fix trades only (keeps all historical records)
 /open — open positions and unrealised PnL
 /recent [n] — last n closed trades (default 10)
 /signals [n] — last n signals and why each was taken or skipped
@@ -178,8 +181,8 @@ class Telegram:
             return self.send("pong — bot is alive and this chat is wired up "
                              "correctly.", md=False)
 
-        if low == "/stats":
-            m = metrics.from_store(self.store)
+        if low in ("/stats", "/stats new"):
+            m = metrics.from_store(self.store, post_fix_only=(low == "/stats new"))
             eq, unreal = self.broker.mark_equity()
             head = (f"*Equity* {eq:.2f} USDT  (realised {self.store.equity():.2f}, "
                     f"open {unreal:+.2f})\n")
@@ -196,7 +199,7 @@ class Telegram:
                 r = u / p["r_unit"] if p["r_unit"] else 0
                 out.append(f"#{p['id']} {p['symbol']} "
                            f"{'LONG' if p['side'] > 0 else 'SHORT'} [{p['tag']}]\n"
-                           f"  entry {p['entry']:.6g} → {px:.6g}  {u:+.2f} ({r:+.2f}R)\n"
+                           f"  entry {p['entry']:.6g} → {px if px is not None else 'unavailable'}  {u:+.2f} ({r:+.2f}R)\n"
                            f"  SL {p['sl']:.6g}  TP {p['tp']:.6g}  "
                            f"notional {p['notional']:.0f}")
             return self.send("*Open*\n```\n" + "\n".join(out) + "\n```")
@@ -242,7 +245,9 @@ class Telegram:
                 f"consec losses {self.store.get('consecutive_losses', 0)}/"
                 f"{c.max_consecutive_losses}\n"
                 f"paused        {self.store.get('paused', False)}\n"
-                f"halt          {halt}\n```")
+                f"halt          {halt}\n"
+                f"data halt     {self.store.get('data_halt_reason', '') or 'none'}\n"
+                f"execution halt {self.store.get('execution_halt_reason', '') or 'none'}\n```")
 
         if low == "/config":
             d = c.dump()
@@ -259,7 +264,13 @@ class Telegram:
             self.store.set("paused", False)
             self.store.set("halt_reason", "")
             self.store.set("consecutive_losses", 0)
-            return self.send("Resumed. Halt flags cleared.")
+            eq, _ = self.broker.mark_equity()
+            self.risk.roll_day(eq)
+            halt = self.risk.halt_check(eq)
+            other = (self.store.get("execution_halt_reason", "") or
+                     self.store.get("data_halt_reason", ""))
+            return self.send(f"Entries still blocked: {halt or other}" if halt or other
+                             else "Resumed. Risk limits remain active.")
         if low == "/halt":
             self.store.set("halt_reason", "manual halt")
             return self.send("Halted. /resume to clear.")
@@ -270,21 +281,17 @@ class Telegram:
                 px = self.broker.feed.price(p["symbol"])
                 if px is None:
                     continue
-                gross = int(p["side"]) * (px - p["entry"]) * p["qty"]
-                fee = abs(px * p["qty"]) * c.taker_fee
-                pnl = gross - fee - float(p["funding"] or 0)
-                eq = self.store.add_equity(pnl)
-                self.store.close_position(
-                    p["id"], exit_price=px, exit_reason="MANUAL", gross=gross,
-                    fees=float(p["entry_fee"] or 0) + fee, pnl=pnl,
-                    r_multiple=pnl / p["r_unit"] if p["r_unit"] else 0,
-                    bars_held=0, equity_after=eq)
-                n += 1
+                result = self.broker.close(p, px, "MANUAL")
+                if result:
+                    n += 1
             return self.send(f"Closed {n} position(s) at market.")
 
         if low == "/backup":
             self.send("Preparing backup…")
-            return self.send_file(self.store.path, f"bot.db {time.strftime('%F %T')}")
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "bot.db"
+                self.store.backup(path)
+                return self.send_file(str(path), f"bot.db {time.strftime('%F %T')}")
 
         if low.startswith("/reset"):
             parts = t.split()
@@ -300,7 +307,8 @@ class Telegram:
             self.store.conn.commit()
             for k, v in [("equity", amt), ("realized", 0.0), ("peak_equity", amt),
                          ("day_start_equity", amt), ("consecutive_losses", 0),
-                         ("halt_reason", ""), ("paused", False)]:
+                         ("halt_reason", ""), ("data_halt_reason", ""),
+                         ("execution_halt_reason", ""), ("paused", False)]:
                 self.store.set(k, v)
             return self.send(f"Reset. Equity {amt:.2f} USDT, all history deleted.")
 
@@ -328,7 +336,7 @@ class Telegram:
         gate = None
         if btc is None or len(btc) < 130:
             L.append(f"MARKET GATE: only {0 if btc is None else len(btc)} daily "
-                     f"bars — gate disabled, all signals pass")
+                     f"bars — new entries blocked")
         else:
             d = ta.resample(btc, "1D")
             e100 = ta.ema(d.close, 100); r30 = d.close.pct_change(30)
@@ -366,9 +374,8 @@ class Telegram:
               f"API {a['total']} calls / {a['errors']} errors / "
               f"{a['rate_limited']} throttled",
               f"next scan in {runner.feed.seconds_to_next_close(c.timeframe)/3600:.1f}h",
-              "expected rate ~1.3 trades/week across the universe;",
-              "48h quiet = 69% likely, 7d = 27%, 14d = 7%.",
-              "Past two weeks with nothing, something is probably wrong."]
+              "Quiet periods are not proof of a fault or an edge.",
+              "Use /stats for observed frequency; historical 1.3/week is not a forecast."]
         return "```\n" + "\n".join(L)[:3800] + "\n```"
 
     @staticmethod

@@ -10,10 +10,25 @@ import numpy as np
 import pandas as pd
 
 
-def from_store(store, starting_equity=None):
+def from_store(store, starting_equity=None, post_fix_only=False):
     rows = store.closed()
+    excluded = 0
+    if post_fix_only:
+        included = [r for r in rows if not r.get("legacy_execution")
+                    and not r.get("history_warning")]
+        excluded = len(rows) - len(included)
+        rows = included
     eq = pd.DataFrame(store.equity_curve())
-    out = {"n": len(rows)}
+    out = {"n": len(rows), "post_fix_only": post_fix_only, "excluded_trades": excluded,
+           "legacy_trades": sum(bool(r.get("legacy_execution")) for r in rows),
+           "history_warning_trades": sum(bool(r.get("history_warning")) for r in rows)}
+    if len(eq) and "ts" in eq:
+        start = pd.to_datetime(eq.ts, utc=True).min()
+        if post_fix_only and rows:
+            start = pd.to_datetime([r["opened_at"] for r in rows], utc=True).min()
+        weeks = (pd.Timestamp.now(tz="UTC") - start).total_seconds() / (7 * 86400)
+        if weeks > 0:
+            out["observed_trades_per_week"] = len(rows) / weeks
     if not rows:
         return out
     t = pd.DataFrame(rows)
@@ -41,8 +56,7 @@ def from_store(store, starting_equity=None):
     if len(t) > 5 and R.std() > 0:
         se = R.std() / math.sqrt(len(t))
         out["t_stat"] = R.mean() / se
-        out["expectancy_R_ci95"] = (R.mean() - 1.96 * se, R.mean() + 1.96 * se)
-    if len(t) >= 10:
+    if len(t) >= 6:
         rng = np.random.default_rng(7)
         p = t.pnl.values
         idx = rng.integers(0, len(p), size=(2000, len(p)))
@@ -51,11 +65,13 @@ def from_store(store, starting_equity=None):
                       np.where(s > 0, s, 0).sum(1) /
                       np.maximum(np.abs(np.where(s <= 0, s, 0).sum(1)), 1e-9),
                       np.inf)
-        fin = pf[np.isfinite(pf)]
-        if len(fin):
-            out["pf_ci95"] = (float(np.percentile(fin, 2.5)),
-                              float(np.percentile(fin, 97.5)))
-        out["prob_edge_positive"] = float((s.mean(1) > 0).mean())
+        # Keep all-win resamples as infinite PF; dropping them biases the CI.
+        lo, hi = np.quantile(pf, [0.025, 0.975], method="inverted_cdf")
+        out["pf_ci95"] = (float(lo), float(hi))
+        rm = R.to_numpy()[idx].mean(1)
+        out["expectancy_R_ci95"] = tuple(float(x) for x in np.quantile(rm, [0.025, 0.975]))
+        out["bootstrap_positive_fraction"] = float((s.mean(1) > 0).mean())
+        out["ci_method"] = "IID trade bootstrap; does not model correlated trades"
 
     if len(eq):
         e = pd.to_numeric(eq.equity, errors="coerce").dropna()
@@ -70,12 +86,20 @@ def from_store(store, starting_equity=None):
 def verdict(m, min_trades=100):
     """Is there evidence of an edge? Deliberately hard to satisfy."""
     n = m.get("n", 0)
+    if m.get("legacy_trades", 0) or m.get("history_warning_trades", 0):
+        return ("UNVALIDATED EXECUTION DATA",
+                f"{m.get('legacy_trades', 0)} legacy trade(s), "
+                f"{m.get('history_warning_trades', 0)} with missing-history flags. "
+                "Fees are normalized, but fills have not been repaired. "
+                "Do not infer an edge from this mixed sample.")
     if n < min_trades:
+        rate = m.get("observed_trades_per_week", 0)
+        timing = (f" At the observed {rate:.2f} closed trades/week, "
+                  f"roughly {(min_trades-n)/rate:.0f} more weeks if that pace persists."
+                  if rate > 0 else "")
         return ("INSUFFICIENT DATA",
-                f"{n}/{min_trades} closed trades. Nothing can be concluded yet — "
-                f"a sample of {n} cannot separate a real edge from noise. "
-                f"At the expected ~1.3 trades/week that is about "
-                f"{max(0, min_trades - n) / 1.3 / 4.3:.0f} more months.")
+                f"{n}/{min_trades} closed trades. The sample cannot establish a "
+                f"reliable edge; 100 is a checkpoint, not proof.{timing}")
     t = m.get("t_stat", 0)
     pf = m.get("profit_factor", 0)
     dd = m.get("max_dd_pct", 100)
@@ -95,7 +119,8 @@ def verdict(m, min_trades=100):
 
 def fmt(m):
     if not m.get("n"):
-        return "No closed trades yet."
+        return (f"No post-fix closed trades yet ({m.get('excluded_trades', 0)} excluded)."
+                if m.get("post_fix_only") else "No closed trades yet.")
     v, why = verdict(m)
     L = [f"n={m['n']}  win {m['win_rate']:.1f}%  payoff {m['payoff']:.2f}",
          f"PF {m['profit_factor']:.2f}" + (
@@ -104,9 +129,16 @@ def fmt(m):
          f"expectancy {m['expectancy_R']:+.3f} R ({m['expectancy_usd']:+.2f} USDT)" + (
              f"  CI95 [{m['expectancy_R_ci95'][0]:+.3f}, {m['expectancy_R_ci95'][1]:+.3f}]"
              if "expectancy_R_ci95" in m else ""),
-         f"net {m['net_pnl']:+.2f}  fees {m['fees']:.2f}  funding {m['funding']:+.2f}",
-         f"max DD {m.get('max_dd_pct', 0):.1f}%  now {m.get('current_dd_pct', 0):.1f}%",
-         f"t-stat {m.get('t_stat', 0):.2f}  P(edge>0) {m.get('prob_edge_positive', 0):.2f}",
+         f"net {m['net_pnl']:+.2f}  fees {m['fees']:.2f}  funding cost {m['funding']:+.2f} (+paid/-received)",
+         f"account max DD {m.get('max_dd_pct', 0):.1f}%  now {m.get('current_dd_pct', 0):.1f}%",
+         f"t-stat {m.get('t_stat', 0):.2f}",
+         (f"positive bootstrap means {m['bootstrap_positive_fraction']:.2f} "
+          "(not P(true edge>0))" if "bootstrap_positive_fraction" in m else
+          "bootstrap: insufficient trades"),
+         "CI method: IID trade bootstrap; correlation is not accounted for",
          f"exits {m['exit_mix']}",
          f"→ {v}: {why}"]
+    if m.get("post_fix_only"):
+        L.insert(0, f"Post-fix trades only; {m.get('excluded_trades', 0)} excluded. "
+                    "DD is the whole-account curve, not a separate strategy curve.")
     return "\n".join(L)

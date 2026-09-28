@@ -5,15 +5,17 @@ stop and reverses is seen — the single most important difference from the old
 engine, which only compared the last 15m close to the stop and therefore never
 recorded most of its losses.
 
-The same ordering rules as the backtester are used, so paper and backtest
-agree: liquidation first, then a gap through a level at the bar open, then the
-stop when a bar touches both levels, then the target, then the time barrier.
+Exit precedence and trailing formulas are shared with the backtester. Paper
+exits use 1m candles; research uses its supplied timeframe, so results are NOT
+identical. See FIXES.md for execution and funding limitations.
 """
 import json
 import math
-from datetime import datetime, timezone
 
 import pandas as pd
+import indicators as ta
+from execution import (EXECUTION_VERSION, bar_exit, liquidation_price,
+                       trailing_stop, trade_pnl)
 
 
 class PaperBroker:
@@ -59,6 +61,11 @@ class PaperBroker:
         if side < 0 and not (tp < entry < sl):
             return None, "bad_levels"
 
+        liq = liquidation_price(entry, side, c.leverage)
+        slipped_stop = sl * (1 - side * c.slip_stop_bps / 1e4)
+        if (side > 0 and slipped_stop <= liq) or (side < 0 and slipped_stop >= liq):
+            return None, "stop_beyond_liquidation"
+
         qty, notional, r_unit = self.size(equity, entry, sl, gross_notional)
         if notional < 10:
             return None, "no_room"
@@ -74,20 +81,64 @@ class PaperBroker:
             "leverage": c.leverage, "sl": sl, "tp": tp, "r_unit": r_unit,
             "max_hold_bars": int(sig.get("max_hold_bars", 0)),
             "atr_at_entry": float(sig.get("atr", 0.0)), "entry_fee": fee,
-            "extra": {"be_at_r": float(sig.get("be_at_r", 0.0)),
+            "extra": {"execution_version": EXECUTION_VERSION,
+                      "trailing_mode": "chandelier", "peak": entry,
+                      "atr_n": int(sig.get("atr_n", 14)),
+                      "be_at_r": float(sig.get("be_at_r", 0.0)),
                       "trail_atr": float(sig.get("trail_atr", 0.0)),
                       "trail_start_r": float(sig.get("trail_start_r", 1.0)),
                       "bar_ts": sig["bar_ts"], "venue_price": px}})
-        self.store.add_equity(-fee)
         return pid, ""
 
     # ---- manage -------------------------------------------------------
 
     def _liq(self, p):
-        lev = float(p["leverage"]) or 1.0
-        mm = 0.005
-        return (p["entry"] * (1 - 1 / lev + mm) if p["side"] > 0
-                else p["entry"] * (1 + 1 / lev - mm))
+        return liquidation_price(float(p["entry"]), int(p["side"]),
+                                 float(p["leverage"]) or 1.0)
+
+    def _history_warning(self, p, extra, message):
+        # A missing tape cannot be reconstructed by pretending prices were flat.
+        # Keep managing known bars, but prevent new entries and flag the record.
+        if not extra.get("history_warning"):
+            self.log.error("%s: %s", p["symbol"], message)
+            self.store.log("ERROR", "execution_history", message)
+        extra["history_warning"] = message
+        self.store.set("execution_halt_reason", message)
+
+    def _trail(self, p, extra, sl, ts, b, tf_minutes):
+        side = int(p["side"])
+        peak = float(extra.get("peak", p["entry"]))
+        peak = max(peak, float(b.high)) if side > 0 else min(peak, float(b.low))
+        extra["peak"] = peak
+        modern = extra.get("trailing_mode") == "chandelier"
+        atr = float(p["atr_at_entry"] or 0)
+        if modern:
+            close_time = ts + pd.Timedelta(minutes=1)
+            # Only update levels when the strategy bar closes; 1m wicks still
+            # trigger the previously established stop throughout the bar.
+            if int(close_time.timestamp()) % (tf_minutes * 60):
+                return sl
+            if float(extra.get("trail_atr", 0) or 0):
+                df = self.feed.bars(p["symbol"], self.cfg.timeframe, need=400)
+                cutoff = close_time - pd.Timedelta(minutes=tf_minutes)
+                if df is None or df.empty or cutoff not in df.index:
+                    self._history_warning(p, extra, "missing strategy bar for trailing stop")
+                    return sl
+                history = df.loc[df.index <= cutoff]
+                atr = float(ta.atr(history, int(extra.get("atr_n", 14))).iloc[-1])
+                if not math.isfinite(atr) or atr <= 0:
+                    self._history_warning(p, extra, "invalid strategy ATR for trailing stop")
+                    return sl
+        sl, peak, done = trailing_stop(
+            side=side, entry=float(p["entry"]), sl0=float(p["sl0"]), sl=sl,
+            close=float(b.close), high=float(b.high), low=float(b.low),
+            atr=atr, peak=peak, trail_atr=float(extra.get("trail_atr", 0) or 0),
+            trail_start_r=float(extra.get("trail_start_r", 1)),
+            be_at_r=float(extra.get("be_at_r", 0) or 0),
+            be_done=bool(extra.get("be_done")), fee_rate=self.cfg.taker_fee,
+            chandelier=modern)
+        extra.update(peak=peak, be_done=done)
+        return sl
 
     def manage(self, tf_minutes):
         """Walk every open position over the 1m bars that closed since we last
@@ -109,79 +160,75 @@ class PaperBroker:
         m1 = self.feed.bars(p["symbol"], "1m", need=120)
         if m1 is None or not len(m1):
             return None
+        opened = pd.Timestamp(p["opened_at"])
+        # Candle indices are OPEN times. A candle straddling the entry includes
+        # pre-entry prices: skip it rather than invent its post-entry path.
+        # This leaves at most one minute unmodelled, explicitly documented.
+        first = opened.ceil("min")
+        now = pd.Timestamp.now(tz="UTC")
+        m1 = m1.loc[(m1.index >= first) &
+                    (m1.index + pd.Timedelta(minutes=1) <= now)].sort_index()
+        m1 = m1[~m1.index.duplicated(keep="last")]
         if seen:
             m1 = m1[m1.index > pd.Timestamp(seen)]
         if not len(m1):
             return None
+        expected = max(first, pd.Timestamp(seen) + pd.Timedelta(minutes=1)) if seen else first
+        if m1.index[0] > expected or (m1.index.to_series().diff().dropna() >
+                                      pd.Timedelta(minutes=1)).any():
+            self._history_warning(p, extra, f"missing 1m exit history for {p['symbol']}")
 
         side = int(p["side"])
         sl, tp = float(p["sl"]), float(p["tp"])
         liq = self._liq(p)
         sslip = c.slip_stop_bps / 1e4
-        opened = pd.Timestamp(p["opened_at"])
         exit_px = reason = None
-
         for ts, b in m1.iterrows():
-            o, h, l, cl = float(b.open), float(b.high), float(b.low), float(b.close)
-            if (side > 0 and l <= liq) or (side < 0 and h >= liq):
-                exit_px, reason = liq, "LIQ"; break
-            if side > 0 and o <= sl:
-                exit_px, reason = o * (1 - sslip), "SL_GAP"; break
-            if side < 0 and o >= sl:
-                exit_px, reason = o * (1 + sslip), "SL_GAP"; break
-            if side > 0 and o >= tp:
-                exit_px, reason = o, "TP_GAP"; break
-            if side < 0 and o <= tp:
-                exit_px, reason = o, "TP_GAP"; break
-            hit_sl = (l <= sl) if side > 0 else (h >= sl)
-            hit_tp = (h >= tp) if side > 0 else (l <= tp)
-            if hit_sl:                          # stop wins ambiguous bars
-                exit_px = sl * (1 - sslip) if side > 0 else sl * (1 + sslip)
-                reason = "SL_AMBIG" if hit_tp else "SL"; break
-            if hit_tp:
-                exit_px, reason = tp, "TP"; break
-
-            # trailing / break-even, evaluated on 1m closes
-            risk_d = abs(p["entry"] - p["sl0"]) or 1e-9
-            prog = side * (cl - p["entry"]) / risk_d
-            be_at = float(extra.get("be_at_r", 0) or 0)
-            if be_at and not extra.get("be_done") and prog >= be_at:
-                pad = p["entry"] * c.taker_fee * 2
-                sl = p["entry"] + pad if side > 0 else p["entry"] - pad
-                extra["be_done"] = True
-            tr = float(extra.get("trail_atr", 0) or 0)
-            a = float(p["atr_at_entry"] or 0)
-            if tr and a > 0 and prog >= float(extra.get("trail_start_r", 1.0)):
-                cand = cl - side * tr * a
-                sl = max(sl, cand) if side > 0 else min(sl, cand)
-
-        extra["last_1m_seen"] = str(m1.index[-1])
-
-        # time barrier
-        if reason is None and p["max_hold_bars"]:
-            held_min = (pd.Timestamp.now(tz="UTC") - opened).total_seconds() / 60
-            if held_min >= p["max_hold_bars"] * tf_minutes:
-                px = float(m1.close.iloc[-1])
-                exit_px = px * (1 - side * c.slip_entry_bps / 1e4)
+            exit_px, reason = bar_exit(side, float(b.open), float(b.high),
+                                       float(b.low), sl, tp, liq, sslip)
+            extra["last_1m_seen"] = str(ts)
+            if reason:
+                extra["exit_bar_ts"] = str(ts)
+                break
+            if p["max_hold_bars"] and ts + pd.Timedelta(minutes=1) >= (
+                    opened + pd.Timedelta(minutes=p["max_hold_bars"] * tf_minutes)):
+                exit_px = float(b.close) * (1 - side * c.slip_entry_bps / 1e4)
                 reason = "TIME"
+                extra["exit_bar_ts"] = str(ts)
+                break
+            sl = self._trail(p, extra, sl, ts, b, tf_minutes)
 
         if reason is None:
             self.store.update_position(p["id"], sl=sl, extra=json.dumps(extra))
             return None
 
-        gross = side * (exit_px - p["entry"]) * p["qty"]
-        exit_fee = abs(exit_px * p["qty"]) * c.taker_fee
-        funding = float(p["funding"] or 0.0)
-        pnl = gross - exit_fee - funding
-        eq = self.store.add_equity(pnl)
-        bars = max(1, int((pd.Timestamp.now(tz="UTC") - opened).total_seconds()
-                          / 60 / tf_minutes))
-        self.store.close_position(
-            p["id"], exit_price=exit_px, exit_reason=reason, gross=gross,
-            fees=float(p["entry_fee"] or 0) + exit_fee, pnl=pnl,
+        return self.close(p, exit_px, reason, sl=sl, extra=json.dumps(extra))
+
+    def close(self, p, exit_px, reason, **updates):
+        """One accounting path for automatic AND manual exits.
+
+        Store.close_position commits the record and cash change atomically;
+        retrying a close must not credit/debit cash a second time.
+        """
+        gross = int(p["side"]) * (exit_px - p["entry"]) * p["qty"]
+        entry_fee = float(p["entry_fee"] or 0)
+        exit_fee = abs(exit_px * p["qty"]) * self.cfg.taker_fee
+        pnl, cash_delta = trade_pnl(gross, entry_fee, exit_fee,
+                                    float(p["funding"] or 0))
+        opened = pd.Timestamp(p["opened_at"])
+        from feed import TF_MS
+        extra = json.loads(updates.pop("extra", p["extra"]) or "{}")
+        ended = (pd.Timestamp(extra["exit_bar_ts"]) + pd.Timedelta(minutes=1)
+                 if extra.get("exit_bar_ts") else pd.Timestamp.now(tz="UTC"))
+        bars = max(0, int((ended - opened).total_seconds()
+                          * 1000 / TF_MS[self.cfg.timeframe]))
+        extra["accounting_version"] = 2
+        ok = self.store.close_position(
+            p["id"], cash_delta=cash_delta, exit_price=exit_px, exit_reason=reason,
+            gross=gross, fees=entry_fee + exit_fee, pnl=pnl,
             r_multiple=pnl / p["r_unit"] if p["r_unit"] else 0.0,
-            bars_held=bars, equity_after=eq, sl=sl, extra=json.dumps(extra))
-        return (p, reason, pnl)
+            bars_held=bars, extra=json.dumps(extra), **updates)
+        return (p, reason, pnl) if ok else None
 
     # ---- funding ------------------------------------------------------
 
@@ -204,8 +251,12 @@ class PaperBroker:
         eq = self.store.equity()
         unreal = 0.0
         for p in self.store.open_positions():
+            unreal -= float(p["funding"] or 0)
             px = self.feed.price(p["symbol"])
             if px is None:
                 continue
             unreal += int(p["side"]) * (px - float(p["entry"])) * float(p["qty"])
-        return eq + unreal, unreal
+        marked = eq + unreal
+        peak = max(float(self.store.get("peak_equity", marked)), marked)
+        self.store.set("peak_equity", peak)
+        return marked, unreal

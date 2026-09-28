@@ -145,6 +145,11 @@ def main():
         log(msg); tg.send(msg)
         return 0
 
+    if best_rep.get("funding_warning"):
+        log("WARNING:", best_rep["funding_warning"])
+        tg.send("Refit warning: no historical funding costs were supplied. "
+                "This is not a fully costed validation result.")
+
     path = cfg.params_file
     old = {}
     if os.path.exists(path):
@@ -158,6 +163,7 @@ def main():
     new["_refit_window_bars"] = need
     new["_refit_symbols"] = sorted(data)
     new["_refit_score"] = round(best_s, 3)
+    new["_refit_funding_warning"] = best_rep.get("funding_warning", "")
     new["_refit_insample"] = {k: (round(v, 3) if isinstance(v, float) else v)
                               for k, v in best_rep.items()
                               if k in ("n_trades", "win_rate", "profit_factor",

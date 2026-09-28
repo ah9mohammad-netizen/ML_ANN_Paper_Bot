@@ -1,4 +1,5 @@
 {
+  "_validation_status": "PRE-FIX historical results; NOT validated for execution v3. Rerun after reviewing FIXES.md.",
   "_source": "Walk-forward, 12 folds, Jan 2023 - Aug 2026, 39 OKX perpetuals, 8h bars. See research/FINDINGS.md.",
   "_validated_out_of_sample": {
     "n_trades": 248, "win_rate_pct": 44.4, "payoff": 2.67,

@@ -133,10 +133,10 @@ class Runner:
             d = self.feed.bars(cfg.market_filter_symbol, "1d", need=300)
             if d is None or len(d) < 130:
                 self.log.warning("market gate: only %d daily bars for %s — "
-                                 "gate disabled this cycle",
+                                 "new entries blocked this cycle",
                                  0 if d is None else len(d),
                                  cfg.market_filter_symbol)
-                return None
+                return pd.Series(0, index=index, dtype=int)
             self._mkt_daily, self._mkt_ts = d, now
         return strat.btc_trend_filter(self._mkt_daily, index)
 
@@ -177,6 +177,7 @@ class Runner:
                     "tag": str(row.tag), "ref_price": float(row.ref_price),
                     "sl": float(row.sl), "tp": float(row.tp),
                     "atr": float(row.atr) if pd.notna(row.atr) else 0.0,
+                    "atr_n": int(p.get("atr_n", 14)),
                     "regime": str(row.regime),
                     "max_hold_bars": int(row.max_hold_bars or 0),
                     "be_at_r": float(row.be_at_r),
@@ -227,10 +228,14 @@ class Runner:
 
         gate = self.risk.stale_gate(stale, len(c.pairs))
         if gate:
-            self.store.set("halt_reason", f"{gate} — will retry automatically")
+            self.store.set("data_halt_reason", f"{gate} — will retry automatically")
             self.log.error("scan skipped: %s", gate)
             return
-        self.store.set("halt_reason", "")
+        self.store.set("data_halt_reason", "")
+        # Refresh even during halts, but never clear a risk/manual halt here.
+        halt = self.risk.halt_check(equity)
+        if halt or self.store.get("execution_halt_reason", ""):
+            return
         tradable = [s for s in c.pairs if s not in stale]
         if stale:
             self.log.warning("excluding %d stale feed(s) this scan: %s",
@@ -250,6 +255,8 @@ class Runner:
                 continue
             if self.store.seen_signal(sym, sig["bar_ts"], sig["tag"]):
                 continue
+            # Fees and existing marks can change equity during the same scan.
+            equity, _ = self.broker.mark_equity()
             opens = self.store.open_positions()
             ok, why = self.risk.can_open(sig, opens, equity)
             if not ok:

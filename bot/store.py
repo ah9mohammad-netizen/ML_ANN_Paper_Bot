@@ -7,6 +7,8 @@ Two things the old store got wrong and this one does not:
     mark-to-market curve rather than reconstructed from closed trades.
 """
 import json, os, sqlite3, time
+import math
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -108,9 +110,13 @@ class Store:
         r = self.conn.execute("SELECT value FROM state WHERE key=?", (k,)).fetchone()
         return json.loads(r["value"]) if r else d
 
-    def set(self, k, v):
+    def _set(self, k, v):
+        """Set state within the caller's transaction."""
         self.conn.execute("INSERT OR REPLACE INTO state VALUES(?,?)", (k, json.dumps(v)))
-        self.conn.commit()
+
+    def set(self, k, v):
+        with self.conn:
+            self._set(k, v)
 
     # ---- lifecycle ---------------------------------------------------
     def init_account(self, equity):
@@ -130,7 +136,6 @@ class Store:
     def add_equity(self, delta):
         e = self.equity() + delta
         self.set("equity", e)
-        self.set("peak_equity", max(float(self.get("peak_equity", e)), e))
         return e
 
     def log(self, level, kind, msg):
@@ -170,6 +175,10 @@ class Store:
             "SELECT * FROM positions WHERE status='OPEN' ORDER BY opened_at").fetchall()
 
     def open_position(self, p):
+        with self.conn:
+            return self._open_position(p)
+
+    def _open_position(self, p):
         cur = self.conn.execute(
             """INSERT INTO positions(signal_id,symbol,side,tag,regime,opened_at,
                entry,qty,notional,leverage,sl,tp,sl0,r_unit,max_hold_bars,
@@ -180,7 +189,8 @@ class Store:
              p["leverage"], p["sl"], p["tp"], p["sl"], p["r_unit"],
              int(p.get("max_hold_bars", 0)), p.get("atr_at_entry", 0.0),
              p.get("entry_fee", 0.0), json.dumps(p.get("extra", {}))))
-        self.conn.commit()
+        # Commit the fee and position together; a restart cannot lose one leg.
+        self._set("equity", self.equity() - float(p.get("entry_fee", 0)))
         return cur.lastrowid
 
     def update_position(self, pid, **kw):
@@ -191,20 +201,57 @@ class Store:
                           (*kw.values(), pid))
         self.conn.commit()
 
-    def close_position(self, pid, **kw):
-        kw["status"] = "CLOSED"
-        kw["closed_at"] = now()
-        self.update_position(pid, **kw)
-        pnl = float(kw.get("pnl", 0.0))
-        self.set("realized", float(self.get("realized", 0.0)) + pnl)
-        c = int(self.get("consecutive_losses", 0))
-        self.set("consecutive_losses", c + 1 if pnl <= 0 else 0)
+    def close_position(self, pid, cash_delta=None, **kw):
+        """Atomically settle once. Returns False if already closed/not found."""
+        with self.conn:
+            row = self.conn.execute("SELECT * FROM positions WHERE id=? AND status='OPEN'",
+                                    (pid,)).fetchone()
+            if row is None:
+                return False
+            kw["status"] = "CLOSED"
+            kw["closed_at"] = now()
+            if cash_delta is not None:
+                e = self.equity() + float(cash_delta)
+                self._set("equity", e)
+                kw["equity_after"] = e
+            sets = ",".join(f"{k}=?" for k in kw)
+            self.conn.execute(f"UPDATE positions SET {sets} WHERE id=?",
+                              (*kw.values(), pid))
+            pnl = float(kw.get("pnl", 0.0))
+            # Recompute the derived aggregate, including normalized legacy rows.
+            self._set("realized", sum(float(p["pnl"] or 0) for p in self.closed()))
+            c = int(self.get("consecutive_losses", 0))
+            self._set("consecutive_losses", c + 1 if pnl <= 0 else 0)
+        return True
+
+    @staticmethod
+    def _reported_trade(p):
+        """Normalize accounting in memory; never rewrite historical fills.
+
+        Legacy pnl omitted entry fees. gross/fees/funding are enough to repair
+        that arithmetic, but NOT erroneous execution. Preserve the raw fields
+        and explicitly mark old trades as unvalidated.
+        """
+        extra = json.loads(p.get("extra") or "{}")
+        p["legacy_execution"] = int(extra.get("execution_version", 0)) < 3
+        p["history_warning"] = extra.get("history_warning", "")
+        p["raw_pnl"], p["raw_r_multiple"] = p.get("pnl"), p.get("r_multiple")
+        components = [p.get(k) for k in ("gross", "fees", "funding")]
+        if all(x is not None and math.isfinite(float(x)) for x in components):
+            p["pnl"] = float(p["gross"]) - float(p["fees"]) - float(p["funding"])
+            p["r_multiple"] = p["pnl"] / p["r_unit"] if p["r_unit"] else 0.0
+        return p
 
     def closed(self, limit=None):
         q = "SELECT * FROM positions WHERE status='CLOSED' ORDER BY closed_at"
         if limit:
             q += f" DESC LIMIT {int(limit)}"
-        return self.conn.execute(q).fetchall()
+        return [self._reported_trade(p) for p in self.conn.execute(q).fetchall()]
+
+    def backup(self, path):
+        """SQLite online backup includes committed WAL pages."""
+        with closing(sqlite3.connect(str(path))) as dest:
+            self.conn.backup(dest)
 
     def equity_curve(self):
         return self.conn.execute("SELECT * FROM equity ORDER BY ts").fetchall()
