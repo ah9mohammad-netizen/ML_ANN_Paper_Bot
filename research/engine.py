@@ -16,6 +16,10 @@ see identical signal code.
 """
 from __future__ import annotations
 import math
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from bot.execution import bar_exit, liquidation_price, trailing_stop, trade_pnl
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
@@ -54,6 +58,7 @@ class RiskConfig:
     max_daily_loss: float = 0.06     # halt new entries for the day past this
     max_drawdown_halt: float = 0.25  # hard stop the whole run
     correlation_group_cap: int = 99
+    max_consecutive_losses: int = 0  # 0 disables this optional paper-style gate
 
 
 # ────────────────────────────────────────────────────────────── objects
@@ -146,7 +151,10 @@ class Backtester:
         self.fund_arr = {}
         for s, f in (funding or {}).items():
             if len(f):
-                self.fund_arr[s] = (f.index.asi8, f["rate"].to_numpy(dtype=float))
+                # Pandas 3 can default to microsecond indices. Timestamp.value
+                # is nanoseconds, so normalize both search arrays explicitly.
+                self.fund_arr[s] = (f.index.as_unit("ns").asi8,
+                                    f["rate"].to_numpy(dtype=float))
 
         self.equity = self.risk.starting_equity
         self.peak_equity = self.equity
@@ -156,6 +164,7 @@ class Backtester:
         self.blocked = 0
         self.block_reasons: Dict[str, int] = {}
         self.halted = False
+        self.consecutive_losses = 0
         self._day = None
         self._day_start_equity = self.equity
 
@@ -167,7 +176,7 @@ class Backtester:
             k = kmap.get(p.symbol)
             if k is not None:
                 unreal += p.side * (self.arr[p.symbol]["close"][k] - p.entry) * p.qty
-        eq = self.equity + unreal
+        eq = self.equity + unreal - sum(p.funding_paid for p in self.positions.values())
         self.peak_equity = max(self.peak_equity, eq)
         self.curve.append((ts, eq, self.equity, len(self.positions)))
         return eq
@@ -192,8 +201,8 @@ class Backtester:
         gross = p.side * (price - p.entry) * p.qty
         exit_fee = abs(price * p.qty) * ex.taker_fee
         fees = p.entry_fee + exit_fee
-        pnl = gross - exit_fee - p.funding_paid
-        self.equity += pnl
+        pnl, cash_delta = trade_pnl(gross, p.entry_fee, exit_fee, p.funding_paid)
+        self.equity += cash_delta
         r = pnl / p.r_unit if p.r_unit > 0 else 0.0
         self.trades.append(Trade(
             symbol=p.symbol, side=p.side, tag=p.tag,
@@ -202,6 +211,10 @@ class Backtester:
             gross=gross, fees=fees, funding=p.funding_paid, pnl=pnl,
             r_unit=p.r_unit, r_multiple=r, bars_held=p.bars_held,
             equity_after=self.equity, meta=dict(p.meta)))
+        self.consecutive_losses = self.consecutive_losses + 1 if pnl <= 0 else 0
+        if (self.risk.max_consecutive_losses and
+                self.consecutive_losses >= self.risk.max_consecutive_losses):
+            self.halted = True
         del self.positions[p.symbol]
 
     def _process_exits(self, ts, prev_ts, kmap, t_prev_i8, t_now_i8):
@@ -215,7 +228,7 @@ class Backtester:
             p.bars_held += 1
 
             # funding
-            rate = self._funding_due(sym, t_prev_i8, t_now_i8)
+            rate = self._funding_due(sym, max(t_prev_i8, p.entry_ts.value), t_now_i8)
             if rate:
                 cost = rate * p.notional * p.side      # long pays positive rate
                 p.funding_paid += cost
@@ -240,74 +253,33 @@ class Backtester:
                     self._close(p, ts, c, "TIME")
                 continue
 
-            # 1. liquidation, but ONLY if the exchange would reach it before our
-            #    own stop does. With sane leverage the stop is always nearer to
-            #    entry than the liquidation price, so the stop fills first and
-            #    liquidation never happens. Checking liq first (as an earlier
-            #    version did) invents losses that could not occur.
-            stop_inside = ((p.sl > liq) if p.side > 0 else (p.sl < liq))
-            if ex.model_liquidation and not stop_inside and \
-                    ((p.side > 0 and l <= liq) or (p.side < 0 and h >= liq)):
-                self._close(p, ts, liq, "LIQ"); continue
-
-            hit_sl = (l <= p.sl) if p.side > 0 else (h >= p.sl)
-            hit_tp = (h >= p.tp) if p.side > 0 else (l <= p.tp)
-
-            # 2. gap through a level at the open
-            if p.side > 0 and o <= p.sl:
-                self._close(p, ts, o * (1 - sslip), "SL_GAP"); continue
-            if p.side < 0 and o >= p.sl:
-                self._close(p, ts, o * (1 + sslip), "SL_GAP"); continue
-            if p.side > 0 and o >= p.tp:
-                self._close(p, ts, o, "TP_GAP"); continue
-            if p.side < 0 and o <= p.tp:
-                self._close(p, ts, o, "TP_GAP"); continue
-
-            # 3. both touched inside the bar -> assume the stop
-            if hit_sl and hit_tp:
-                if ex.pessimistic_ambiguous_bar:
-                    px = p.sl * (1 - sslip) if p.side > 0 else p.sl * (1 + sslip)
-                    self._close(p, ts, px, "SL_AMBIG"); continue
-                self._close(p, ts, p.tp, "TP"); continue
-            if hit_sl:
-                px = p.sl * (1 - sslip) if p.side > 0 else p.sl * (1 + sslip)
-                self._close(p, ts, px, "SL"); continue
-            if hit_tp:
-                self._close(p, ts, p.tp, "TP"); continue
+            px, reason = bar_exit(
+                p.side, o, h, l, p.sl, p.tp,
+                liq if ex.model_liquidation else None, sslip,
+                pessimistic=ex.pessimistic_ambiguous_bar)
+            if reason:
+                self._close(p, ts, px, reason)
+                continue
 
             # 4. time barrier
             if p.max_hold_bars and p.bars_held >= p.max_hold_bars:
                 self._close(p, ts, c * (1 - p.side * ex.slip_entry_bps / 1e4),
                             "TIME"); continue
 
-            # 5. break-even / trailing management (evaluated on the close)
-            be_at = p.meta.get("be_at_r", 0)
-            if be_at and not p.be_moved:
-                risk_d = abs(p.entry - p.meta["sl0"])
-                prog = p.side * (c - p.entry) / risk_d if risk_d else 0
-                if prog >= be_at:
-                    fee_pad = p.entry * self.ex.taker_fee * 2
-                    p.sl = (p.entry + fee_pad) if p.side > 0 else (p.entry - fee_pad)
-                    p.be_moved = True
-            trail = p.meta.get("trail_atr", 0)
-            if trail:
-                if self.ex.chandelier:
-                    # trail off the CURRENT ATR and the extreme reached since
-                    # entry, not a stale ATR snapshot from the entry bar
-                    av = self.sarr[sym]["atr"][k]
-                    a = float(av) if np.isfinite(av) and av > 0 else p.meta.get("atr_at_entry", 0)
-                    p.peak = max(p.peak, h) if p.side > 0 else (
-                        min(p.peak, l) if p.peak else l)
-                    anchor = p.peak
-                else:
-                    a = p.meta.get("atr_at_entry", 0)
-                    anchor = c
-                start_r = p.meta.get("trail_start_r", 1.0)
-                risk_d = abs(p.entry - p.meta["sl0"])
-                prog = p.side * (c - p.entry) / risk_d if risk_d else 0
-                if prog >= start_r and a > 0:
-                    cand = anchor - p.side * trail * a
-                    p.sl = max(p.sl, cand) if p.side > 0 else min(p.sl, cand)
+            # Same trailing formula as paper; the supplied bars determine
+            # temporal resolution. Current-bar ATR is used only at its close.
+            atr = p.meta.get("atr_at_entry", 0)
+            if ex.chandelier:
+                av = self.sarr[sym]["atr"][k]
+                if np.isfinite(av) and av > 0:
+                    atr = float(av)
+            p.sl, p.peak, p.be_moved = trailing_stop(
+                side=p.side, entry=p.entry, sl0=p.meta["sl0"], sl=p.sl,
+                close=c, high=h, low=l, atr=atr, peak=p.peak,
+                trail_atr=p.meta.get("trail_atr", 0),
+                trail_start_r=p.meta.get("trail_start_r", 1),
+                be_at_r=p.meta.get("be_at_r", 0), be_done=p.be_moved,
+                fee_rate=ex.taker_fee, chandelier=ex.chandelier)
 
     # ---- entries ------------------------------------------------------
 
@@ -340,6 +312,12 @@ class Backtester:
             return self._block("daily_loss_halt")
 
         side = int(row["side"])
+        if sum(p.side == side for p in self.positions.values()) >= R.max_open_per_side:
+            return self._block("max_open_per_side")
+        if sym not in {"BTC", "ETH"} and sum(
+                p.side == side and p.symbol not in {"BTC", "ETH"}
+                for p in self.positions.values()) >= R.correlation_group_cap:
+            return self._block("correlation_cap")
         slip = self.ex.slip_entry_bps / 1e4
         base = float(bar_open) if fill_px is None else float(fill_px)
         entry = base * (1 + side * slip)
@@ -353,6 +331,12 @@ class Backtester:
             return self._block("bad_levels")
         if side < 0 and not (tp < entry < sl):
             return self._block("bad_levels")
+
+        liq = liquidation_price(entry, side, R.leverage, self.ex.maint_margin)
+        stop_fill = sl * (1 - side * self.ex.slip_stop_bps / 1e4)
+        if self.ex.model_liquidation and ((side > 0 and stop_fill <= liq) or
+                                           (side < 0 and stop_fill >= liq)):
+            return self._block("stop_beyond_liquidation")
 
         rm = row.get("risk_mult", 1.0)
         qty, notional, r_unit = self._size(entry, sl, 1.0 if not np.isfinite(rm) else float(rm))
@@ -374,7 +358,7 @@ class Backtester:
                   "atr_at_entry": float(atr_v) if np.isfinite(atr_v) else 0.0,
                   "be_at_r": float(row.get("be_at_r", 0.0) or 0.0),
                   "trail_atr": float(row.get("trail_atr", 0.0) or 0.0),
-                  "trail_start_r": float(row.get("trail_start_r", 1.0) or 1.0),
+                  "trail_start_r": float(row.get("trail_start_r", 1.0)),
                   "regime": row.get("regime", "")})
         self.equity -= fee
 
@@ -382,7 +366,7 @@ class Backtester:
 
     def run(self):
         idx = self.index
-        i8 = idx.asi8
+        i8 = idx.as_unit("ns").asi8
         syms = list(self.data)
         kpos = self.kpos
         prev_i8 = i8[0]
@@ -398,13 +382,6 @@ class Backtester:
             if day != self._day:
                 self._day = day
                 self._day_start_equity = self.equity
-
-            self._process_exits(ts, None, kmap, prev_i8, i8[j])
-
-            eq = self._mark_equity(ts, kmap)
-            if self.peak_equity > 0 and (self.peak_equity - eq) / self.peak_equity \
-                    >= self.risk.max_drawdown_halt:
-                self.halted = True
 
             # entries: a signal printed on the PREVIOUS bar fills at THIS open
             if not self.halted:
@@ -425,13 +402,26 @@ class Backtester:
                     self._try_open(ts, sym, row, self.arr[sym]["open"][k],
                                    fill_px=fill)
 
+            # Entry at this open must be exposed to THIS bar's wick. Previous
+            # code processed exits first and skipped every entry-bar stop.
+            self._process_exits(ts, None, kmap, prev_i8, i8[j])
+            eq = self._mark_equity(ts, kmap)
+            if self.peak_equity > 0 and (self.peak_equity - eq) / self.peak_equity \
+                    >= self.risk.max_drawdown_halt:
+                self.halted = True
             prev_i8 = i8[j]
 
         # force-close anything still open at the last mark
         for sym in list(self.positions.keys()):
             p = self.positions[sym]
             self._close(p, idx[-1], float(self.data[sym].close.iloc[-1]), "EOD")
-        return self.report()
+        # EOD exit costs must be reflected in the curve used for CAGR.
+        self.curve[-1] = (idx[-1], self.equity, self.equity, 0)
+        result = self.report()
+        result["funding_history_supplied"] = bool(self.fund_arr)
+        if self.ex.use_funding and not self.fund_arr:
+            result["funding_warning"] = "Funding enabled but no funding history supplied; costs omitted"
+        return result
 
     # ---- reporting ----------------------------------------------------
 
@@ -500,7 +490,7 @@ def build_report(t: pd.DataFrame, eq: pd.DataFrame, start_equity: float,
         "avg_hold_hours": t.bars_held.mean() * bar_minutes / 60,
         "trades_per_week": len(t) / (days / 7),
         "exit_mix": t.reason.value_counts().to_dict(),
-        "n_liquidations": int((t.reason == "LIQ").sum()),
+        "n_liquidations": int(t.reason.str.startswith("LIQ").sum()),
         "blocked": blocked or {},
         "final_equity": e.iloc[-1],
         "start": str(e.index[0])[:10], "end": str(e.index[-1])[:10],
@@ -527,8 +517,7 @@ def bootstrap_ci(t, n=2000, seed=7):
     return {
         "expectancy_usd_ci95": (float(np.percentile(exp, 2.5)),
                                 float(np.percentile(exp, 97.5))),
-        "pf_ci95": (float(np.percentile(pf, 2.5)),
-                    float(np.percentile(pf[np.isfinite(pf)], 97.5) if np.isfinite(pf).any() else np.inf)),
+        "pf_ci95": tuple(float(x) for x in np.quantile(pf, [0.025, 0.975], method="inverted_cdf")),
         "prob_profitable": float((exp > 0).mean()),
     }
 
@@ -549,8 +538,10 @@ def fmt(r, title=""):
          f"  Sharpe {r['sharpe']:.2f}   Sortino {r['sortino']:.2f}   t-stat {r.get('t_stat', 0):.2f}",
          f"  fees {r['total_fees']:.2f} + funding {r['total_funding']:.2f}  "
          f"(fees = {r['fees_pct_of_gross_profit']:.0f}% of gross profit)",
-         f"  P(edge>0) {r.get('prob_profitable', 0):.2f}   liquidations {r['n_liquidations']}",
+         f"  positive bootstrap means (not edge probability) {r.get('prob_profitable', 0):.2f}   liquidations {r['n_liquidations']}",
          f"  exits         {r['exit_mix']}"]
+    if r.get("funding_warning"):
+        L.append(f"  WARNING: {r['funding_warning']}")
     if r.get("blocked"):
         L.append(f"  blocked       {r['blocked']}")
     return "\n".join(L)

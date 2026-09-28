@@ -137,6 +137,9 @@ def walk_forward(data, sigfn, space, risk: RiskConfig, ex: ExecConfig,
     eq = stitch(oos_curves, risk.starting_equity)
     rep = build_report(T, eq, risk.starting_equity, bar_minutes)
     rep["n_folds_used"] = len(chosen)
+    rep["funding_history_supplied"] = bool(funding)
+    if ex.use_funding and not funding:
+        rep["funding_warning"] = "Funding enabled but no funding history supplied; costs omitted"
     return {"folds": pd.DataFrame(chosen), "report": rep, "trades": T,
             "equity": eq}
 

@@ -1,3 +1,8 @@
+> **Historical / superseded execution model:** The figures in this document
+> predate the 2026-09-28 execution/accounting fixes. They have not been rerun.
+> Entry-bar stops, fee accounting and trailing behavior changed. Do not use
+> these figures as an expected CAGR or deployment approval. See `../FIXES.md`.
+
 # ML_ANN_Paper_Bot — audit, rebuild and evidence
 
 Everything below comes from OKX perpetual futures data, 2022-01-01 to
