@@ -12,3 +12,7 @@ __pycache__/
 
 # OKX candle cache written by research/okx_data.py
 research/data/
+
+# Test artifacts
+.pytest_cache/
+*.db-shm
